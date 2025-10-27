@@ -102,11 +102,22 @@ class BackgroundService {
       return;
     }
 
-    return new Promise(resolve => {
-      const onReady = msg => {
+    return new Promise(async resolve => {
+      const onReady = async msg => {
         if (msg?.type === 'offscreen:ready') {
           chrome.runtime.onMessage.removeListener(onReady);
           this.offscreenReady = true;
+
+          // Load and send vocab to offscreen document
+          try {
+            const vocab = await this.loadVocab();
+            if (vocab) {
+              await this.sendVocabToOffscreen(vocab);
+            }
+          } catch (error) {
+            console.error('Failed to send vocab to offscreen:', error);
+          }
+
           resolve();
         }
       };
@@ -119,6 +130,47 @@ class BackgroundService {
         resolve();
       }, 5000); // 5 second timeout
     });
+  }
+
+  /**
+   * Load vocab.txt from bundled files
+   * @returns {Promise<string[]>} Vocabulary array
+   */
+  async loadVocab() {
+    try {
+      const vocabUrl = chrome.runtime.getURL('generated/models/all-MiniLM-L6-v2/vocab.txt');
+      const response = await fetch(vocabUrl);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch vocab: ${response.status}`);
+      }
+
+      const vocabText = await response.text();
+      const vocab = vocabText.split('\n').filter(line => line.trim());
+
+      console.log('Loaded vocab from bundle, size:', vocab.length);
+      return vocab;
+    } catch (error) {
+      console.error('Failed to load vocab:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Send vocab to offscreen document
+   * @param {string[]} vocab - Vocabulary array
+   */
+  async sendVocabToOffscreen(vocab) {
+    try {
+      await this.sendToOffscreen({
+        type: 'INIT_WITH_VOCAB',
+        data: { vocab },
+      });
+      console.log('Vocab sent to offscreen document');
+    } catch (error) {
+      console.error('Failed to send vocab to offscreen:', error);
+      throw error;
+    }
   }
 
   /**

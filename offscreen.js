@@ -16,11 +16,12 @@ class OffscreenController {
 
   /**
    * Initialize the offscreen controller
+   * @param {string[]} vocab - Optional vocabulary array from background
    */
-  async init() {
+  async init(vocab = null) {
     try {
       // Initialize ONNX Runtime directly in offscreen document
-      await this.initONNXRuntime();
+      await this.initONNXRuntime(vocab);
 
       // Handle messages from service worker
       const messageListener = (message, sender, sendResponse) => {
@@ -62,7 +63,7 @@ class OffscreenController {
     }
   }
 
-  async initONNXRuntime() {
+  async initONNXRuntime(vocab = null) {
     try {
       // Import ONNX Runtime Web - use the minified version from extension
       try {
@@ -115,8 +116,8 @@ class OffscreenController {
         logId: 'chrome-extension-ort',
       });
 
-      // Load tokenizer
-      await this.loadTokenizer();
+      // Load tokenizer with vocab if provided
+      await this.loadTokenizer(vocab);
 
       this.initialized = true;
     } catch (error) {
@@ -134,13 +135,17 @@ class OffscreenController {
     const { type, data } = message;
 
     // Only handle specific message types meant for offscreen document
-    if (!['PROCESS_PAGE', 'COMPUTE_QUERY_EMBEDDING'].includes(type)) {
+    if (!['PROCESS_PAGE', 'COMPUTE_QUERY_EMBEDDING', 'INIT_WITH_VOCAB'].includes(type)) {
       return false; // Let other handlers process this message
     }
 
     // Handle async operations properly
     try {
       switch (type) {
+        case 'INIT_WITH_VOCAB':
+          this.initWithVocab(data, sendResponse);
+          break;
+
         case 'PROCESS_PAGE':
           this.processPage(data, sendResponse);
           break;
@@ -159,6 +164,26 @@ class OffscreenController {
       console.error('Error handling service worker message:', error);
       sendResponse({ success: false, error: error.message });
       return true;
+    }
+  }
+
+  /**
+   * Initialize with vocab passed from background
+   * @param {Object} data - Data containing vocab array
+   * @param {Function} sendResponse - Response callback
+   */
+  async initWithVocab(data, sendResponse) {
+    try {
+      if (data && data.vocab) {
+        console.log('Received vocab from background, size:', data.vocab.length);
+        await this.loadTokenizer(data.vocab);
+        sendResponse({ success: true });
+      } else {
+        sendResponse({ success: false, error: 'No vocab provided' });
+      }
+    } catch (error) {
+      console.error('Failed to init with vocab:', error);
+      sendResponse({ success: false, error: error.message });
     }
   }
 
@@ -253,147 +278,123 @@ class OffscreenController {
   }
 
   /**
-   * Create a simple tokenizer from config
-   * @param {Object} config - Tokenizer configuration
-   * @returns {Object} Tokenizer with encoder
+   * Load tokenizer from vocab array
+   * @param {string[]} vocab - Vocabulary array (passed from background)
    */
-  createTokenizerFromConfig(config) {
-    // For now, create a simple word-based tokenizer
-    // This is a basic implementation - in production you'd want a proper BERT tokenizer
-    return {
-      encoder: {
-        encode: text => {
-          // Simple word tokenization with special tokens
-          const words = text
-            .toLowerCase()
-            .replace(/[^\w\s]/g, ' ') // Remove punctuation
-            .split(/\s+/)
-            .filter(word => word.length > 0);
-
-          // Simple hash-based token IDs
-          return words.map(word => {
-            // This is a basic implementation
-            return (
-              word.split('').reduce((hash, char) => {
-                hash = (hash << 5) - hash + char.charCodeAt(0);
-                return hash & hash;
-              }, 0) % 30522
-            ); // BERT vocab size
-          });
-        },
-      },
-    };
-  }
-
-  /**
-   * Load tokenizer from OPFS
-   */
-  async loadTokenizer() {
+  async loadTokenizer(vocab = null) {
     try {
       console.log('Loading tokenizer...');
 
-      // Try to load tokenizer.json directly from extension bundle
-      try {
-        console.log('Attempting to load tokenizer.json from extension bundle...');
-        // Get extension ID using chrome.runtime.getURL
-        const tokenizerUrl = chrome.runtime.getURL(
-          'generated/models/all-MiniLM-L6-v2/tokenizer.json'
-        );
+      // If vocab not provided, try to load from extension URL
+      if (!vocab) {
+        console.log('No vocab provided, attempting to load from bundle...');
+        try {
+          const vocabUrl = chrome.runtime.getURL('generated/models/all-MiniLM-L6-v2/vocab.txt');
+          const response = await fetch(vocabUrl);
 
-        const response = await fetch(tokenizerUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch tokenizer: ${response.status} ${response.statusText}`);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch vocab: ${response.status}`);
+          }
+
+          const vocabText = await response.text();
+          vocab = vocabText.split('\n').filter(line => line.trim());
+        } catch (error) {
+          console.error('Failed to load vocab from URL:', error);
+          throw new Error('Vocab must be provided to loadTokenizer');
         }
-
-        const tokenizerText = await response.text();
-        console.log('Tokenizer.json file size:', tokenizerText.length, 'characters');
-
-        const tokenizerConfig = JSON.parse(tokenizerText);
-        console.log('Tokenizer config loaded successfully from extension bundle');
-        console.log('Tokenizer structure:', Object.keys(tokenizerConfig));
-
-        // Create encoder from tokenizer config
-        this.tokenizer = this.createTokenizerFromConfig(tokenizerConfig);
-        console.log('Tokenizer instance created with encoder');
-
-        return;
-      } catch (tokenizerError) {
-        console.error('Failed to load tokenizer.json from bundle:', tokenizerError);
       }
 
-      // Fallback: try OPFS
-      console.log('Falling back to OPFS...');
-      const opfsRoot = await navigator.storage.getDirectory();
-      const modelDir = await opfsRoot.getDirectoryHandle('models/all-MiniLM-L6-v2');
-      console.log('Model directory accessed');
+      console.log('Vocabulary loaded, size:', vocab.length);
 
-      // Try to load tokenizer.json from OPFS
-      try {
-        console.log('Attempting to load tokenizer.json from OPFS...');
-        const tokenizerFile = await modelDir.getFileHandle('tokenizer.json');
-        const file = await tokenizerFile.getFile();
-        const tokenizerText = await file.text();
-        console.log('Tokenizer.json file size:', tokenizerText.length, 'characters');
+      // Create vocab map for O(1) lookup
+      const vocabMap = new Map(vocab.map((token, idx) => [token, idx]));
 
-        const tokenizerConfig = JSON.parse(tokenizerText);
-        console.log('Tokenizer config loaded successfully from OPFS');
-        console.log('Tokenizer structure:', Object.keys(tokenizerConfig));
+      // Get special token IDs
+      const clsId = vocabMap.get('[CLS]') || 101;
+      const sepId = vocabMap.get('[SEP]') || 102;
+      const unkId = vocabMap.get('[UNK]') || 100;
 
-        // Create encoder from tokenizer config
-        this.tokenizer = this.createTokenizerFromConfig(tokenizerConfig);
-        console.log('Tokenizer instance created with encoder');
+      console.log('Special tokens:', { clsId, sepId, unkId });
 
-        return;
-      } catch (tokenizerError) {
-        console.error('Failed to load tokenizer.json from OPFS:', tokenizerError);
-      }
+      // Create WordPiece tokenizer
+      this.tokenizer = {
+        vocab,
+        vocabMap,
+        clsId,
+        sepId,
+        unkId,
+        encoder: {
+          encode: text => {
+            const tokens = [clsId];
 
-      // Try to load vocab.txt (alternative format)
-      try {
-        console.log('Attempting to load vocab.txt from OPFS...');
-        const vocabFile = await modelDir.getFileHandle('vocab.txt');
-        const file = await vocabFile.getFile();
-        const vocabText = await file.text();
-        console.log('Vocab.txt file size:', vocabText.length, 'characters');
+            // Basic preprocessing: lowercase and split by whitespace
+            const words = text
+              .toLowerCase()
+              .replace(/['']/g, "'") // Normalize quotes
+              .split(/\s+/)
+              .filter(w => w.length > 0);
 
-        // Create simple tokenizer from vocab
-        const vocab = vocabText.split('\n').filter(line => line.trim());
-        console.log('Vocabulary size:', vocab.length);
+            // WordPiece tokenization for each word
+            for (const word of words) {
+              // Remove punctuation for initial lookup
+              const cleanWord = word.replace(/[^\w]/g, '');
+              if (!cleanWord) continue;
 
-        this.tokenizer = {
-          vocab: vocab,
-          encoder: {
-            encode: text => {
-              const words = text.toLowerCase().split(/\s+/);
-              return words.map(word => {
-                const index = vocab.indexOf(word);
-                return index !== -1 ? index : 0; // UNK token
-              });
-            },
+              // Greedy longest-match first
+              if (vocabMap.has(cleanWord)) {
+                tokens.push(vocabMap.get(cleanWord));
+                continue;
+              }
+
+              // Subword tokenization
+              let start = 0;
+              const chars = Array.from(cleanWord);
+              let hasTokens = false;
+
+              while (start < chars.length) {
+                let end = chars.length;
+                let found = false;
+
+                // Try longest match first
+                while (end > start) {
+                  const substr = chars.slice(start, end).join('');
+                  const token = start === 0 ? substr : '##' + substr;
+
+                  if (vocabMap.has(token)) {
+                    tokens.push(vocabMap.get(token));
+                    found = true;
+                    hasTokens = true;
+                    start = end;
+                    break;
+                  }
+                  end--;
+                }
+
+                // No subword found, use UNK and move forward
+                if (!found) {
+                  if (!hasTokens) {
+                    tokens.push(unkId);
+                  }
+                  break;
+                }
+              }
+            }
+
+            tokens.push(sepId);
+            return tokens;
           },
-        };
-        console.log('Tokenizer created from vocab.txt');
+        },
+      };
 
-        // Test tokenization
-        console.log('Testing vocab-based tokenizer with "considerato"...');
-        const testTokens = this.tokenizer.encoder.encode('considerato');
-        console.log('Test tokens for "considerato":', testTokens);
+      // Test tokenization
+      const testText = 'electro';
+      const testTokens = this.tokenizer.encoder.encode(testText);
+      console.log(`Test: "${testText}" -> tokens:`, testTokens);
 
-        return;
-      } catch (vocabError) {
-        console.error('Failed to load vocab.txt from OPFS:', vocabError);
-      }
-
-      // No fallback - require proper tokenizer
-      throw new Error(
-        'Tokenizer files not found. Please ensure tokenizer.json and vocab.txt are properly downloaded.'
-      );
+      return;
     } catch (error) {
-      console.error('Tokenizer loading failed:', error);
-      // Model directory doesn't exist - no fallback
-      throw new Error(
-        'Model directory not found. Please ensure the all-MiniLM-L6-v2 model is properly downloaded.'
-      );
+      console.error('Failed to load tokenizer:', error);
+      throw new Error('Failed to load tokenizer from bundled vocab.txt');
     }
   }
 

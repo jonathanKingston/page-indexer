@@ -11,7 +11,7 @@
     "build": "esbuild offscreen.js --bundle --outfile=generated/offscreen-bundled.js --format=iife --target=es2020",
     "build:dev": "esbuild offscreen.js --bundle --outfile=generated/offscreen-bundled.js --format=iife --target=es2020 --sourcemap",
     "watch": "esbuild offscreen.js --bundle --outfile=generated/offscreen-bundled.js --format=iife --target=es2020 --watch",
-    "format": "prettier --write \"*.js\" \"worker/*.js\" \"scripts/*.js\"",
+    "format": "prettier --write \"*.js\" \"scripts/*.js\"",
     "test": "echo 'No tests specified'"
   },
   "dependencies": {
