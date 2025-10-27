@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "Page Indexer",
+  "version": "1.0.0",
+  "description": "Automatically captures and indexes web pages with embeddings for offline search",
+  
+  "permissions": [
+    "pageCapture",
+    "storage",
+    "tabs",
+    "offscreen"
+  ],
+  
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Page Indexer"
+  },
+  
+  "background": {
+    "service_worker": "background.js"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  
+  "web_accessible_resources": [
+    {
+      "resources": ["worker/*", "lib/*", "models/*", "generated/models/*", "generated/ort/*", "popup.html", "sidepanel.html", "test-search.html", "offscreen.html", "generated/*.js", "generated/*.wasm", "*.wasm"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+  },
+  
+  "cross_origin_embedder_policy": { "value": "require-corp" },
+  "cross_origin_opener_policy": { "value": "same-origin" }
+}

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PageIndexer - Side Panel</title>
+    <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+    <div class="sidepanel-container">
+        <!-- Navigation -->
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-view="pages">
+                <span class="tab-icon">📄</span>
+                Pages
+            </button>
+            <button class="nav-tab" data-view="search">
+                <span class="tab-icon">🔍</span>
+                Search
+            </button>
+            <button class="nav-tab" data-view="settings">
+                <span class="tab-icon">⚙️</span>
+                Settings
+            </button>
+        </nav>
+
+        <!-- Pages View -->
+        <div class="view-container" id="pagesView">
+            <div class="view-header">
+                <h2>Indexed Pages</h2>
+                <div class="view-controls">
+                    <input type="text" id="pagesSearch" placeholder="Search pages..." class="search-input">
+                    <select id="pagesSort" class="sort-select">
+                        <option value="date-desc">Date (Newest)</option>
+                        <option value="date-asc">Date (Oldest)</option>
+                        <option value="title-asc">Title (A-Z)</option>
+                        <option value="title-desc">Title (Z-A)</option>
+                        <option value="chunks-desc">Chunks (Most)</option>
+                        <option value="chunks-asc">Chunks (Least)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="pages-list" id="pagesList">
+                <div class="loading">Loading pages...</div>
+            </div>
+            
+            <div class="pagination" id="pagesPagination">
+                <!-- Pagination controls will be inserted here -->
+            </div>
+        </div>
+
+        <!-- Search View -->
+        <div class="view-container hidden" id="searchView">
+            <div class="view-header">
+                <h2>Semantic Search</h2>
+            </div>
+            
+            <div class="search-form">
+                <div class="search-input-group">
+                    <input type="text" id="searchQuery" placeholder="Enter your search query..." class="search-input large">
+                    <button id="searchButton" class="search-btn">Search</button>
+                </div>
+                <div class="search-options">
+                    <label>
+                        <input type="number" id="searchLimit" value="10" min="1" max="50">
+                        Max results
+                    </label>
+                </div>
+            </div>
+            
+            <div class="search-results" id="searchResults">
+                <div class="empty-state">
+                    <div class="empty-icon">🔍</div>
+                    <div>Enter a search query to find similar content</div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Settings View -->
+        <div class="view-container hidden" id="settingsView">
+            <div class="view-header">
+                <h2>Settings</h2>
+            </div>
+            
+            <div class="settings-sections">
+                <div class="settings-section">
+                    <h3>Indexing</h3>
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="autoIndexing" checked>
+                            Enable automatic indexing
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <label>
+                            Chunk size:
+                            <select id="chunkSize">
+                                <option value="256">256 tokens</option>
+                                <option value="512" selected>512 tokens</option>
+                                <option value="1024">1024 tokens</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <label>
+                            Overlap size:
+                            <input type="number" id="overlapSize" value="50" min="0" max="200">
+                            tokens
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="settings-section">
+                    <h3>Storage</h3>
+                    <div class="setting-item">
+                        <div class="storage-info">
+                            <div>Pages: <span id="storagePages">0</span></div>
+                            <div>Chunks: <span id="storageChunks">0</span></div>
+                            <div>Storage: <span id="storageSize">0 MB</span></div>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <button id="clearAllData" class="btn danger">Clear All Data</button>
+                        <button id="exportData" class="btn">Export Data</button>
+                    </div>
+                </div>
+                
+                <div class="settings-section">
+                    <h3>Model</h3>
+                    <div class="setting-item">
+                        <div class="model-info">
+                            <div>Model: <span id="modelName">all-MiniLM-L6-v2</span></div>
+                            <div>Dimensions: <span id="modelDims">384</span></div>
+                            <div>Status: <span id="modelStatus">Ready</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Page Detail Modal -->
+        <div class="modal" id="pageDetailModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalPageTitle">Page Details</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body" id="modalPageContent">
+                    <!-- Page details will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="sidepanel.js"></script>
+</body>
+</html>

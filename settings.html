@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Indexer Settings</title>
+    <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+    <div class="settings-container">
+        <header class="header">
+            <h1>Settings</h1>
+            <button class="back-btn" onclick="window.close()">← Back</button>
+        </header>
+
+        <div class="settings-content">
+            <!-- Indexing Settings -->
+            <section class="settings-section">
+                <h2>Indexing</h2>
+                
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            <input type="checkbox" id="autoIndexing" checked>
+                            <span class="checkbox-custom"></span>
+                            Enable automatic indexing
+                        </label>
+                        <p class="setting-description">
+                            Automatically capture and index pages as you browse
+                        </p>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            Chunk size:
+                            <select id="chunkSize" class="setting-select">
+                                <option value="256">256 tokens</option>
+                                <option value="512" selected>512 tokens</option>
+                                <option value="1024">1024 tokens</option>
+                            </select>
+                        </label>
+                        <p class="setting-description">
+                            Size of text chunks for embedding computation
+                        </p>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            Overlap size:
+                            <input type="number" id="overlapSize" value="50" min="0" max="200" class="setting-input">
+                            tokens
+                        </label>
+                        <p class="setting-description">
+                            Overlap between consecutive chunks to maintain context
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Storage Settings -->
+            <section class="settings-section">
+                <h2>Storage</h2>
+                
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div class="storage-stats">
+                            <div class="stat-row">
+                                <span class="stat-label">Pages indexed:</span>
+                                <span class="stat-value" id="storagePages">0</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Total chunks:</span>
+                                <span class="stat-value" id="storageChunks">0</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Storage used:</span>
+                                <span class="stat-value" id="storageSize">0 MB</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">OPFS usage:</span>
+                                <span class="stat-value" id="opfsUsage">0 MB</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <div class="action-buttons">
+                            <button id="refreshStats" class="btn secondary">Refresh Stats</button>
+                            <button id="exportData" class="btn">Export Data</button>
+                            <button id="clearAllData" class="btn danger">Clear All Data</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Model Settings -->
+            <section class="settings-section">
+                <h2>Model</h2>
+                
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div class="model-info">
+                            <div class="info-row">
+                                <span class="info-label">Model:</span>
+                                <span class="info-value" id="modelName">all-MiniLM-L6-v2</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Dimensions:</span>
+                                <span class="info-value" id="modelDims">384</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Status:</span>
+                                <span class="info-value" id="modelStatus">Ready</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Size:</span>
+                                <span class="info-value" id="modelSize">~25 MB</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Search Settings -->
+            <section class="settings-section">
+                <h2>Search</h2>
+                
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            Default search results:
+                            <input type="number" id="defaultSearchLimit" value="10" min="1" max="50" class="setting-input">
+                        </label>
+                        <p class="setting-description">
+                            Number of results to show by default in semantic search
+                        </p>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            <input type="checkbox" id="enableCaching" checked>
+                            <span class="checkbox-custom"></span>
+                            Enable vector caching
+                        </label>
+                        <p class="setting-description">
+                            Cache loaded vectors in memory for faster search
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Privacy Settings -->
+            <section class="settings-section">
+                <h2>Privacy</h2>
+                
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            <input type="checkbox" id="indexPrivatePages" checked>
+                            <span class="checkbox-custom"></span>
+                            Index private pages (localhost, file://, etc.)
+                        </label>
+                        <p class="setting-description">
+                            Allow indexing of local and private pages
+                        </p>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            <input type="checkbox" id="storePageContent" checked>
+                            <span class="checkbox-custom"></span>
+                            Store page content
+                        </label>
+                        <p class="setting-description">
+                            Store original page content for viewing (increases storage usage)
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Advanced Settings -->
+            <section class="settings-section">
+                <h2>Advanced</h2>
+                
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            <input type="checkbox" id="enableDebugLogging">
+                            <span class="checkbox-custom"></span>
+                            Enable debug logging
+                        </label>
+                        <p class="setting-description">
+                            Log detailed information to console for debugging
+                        </p>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            <input type="checkbox" id="enableVisualization">
+                            <span class="checkbox-custom"></span>
+                            Enable embedding visualization
+                        </label>
+                        <p class="setting-description">
+                            Allow 2D visualization of embeddings (experimental)
+                        </p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <footer class="footer">
+            <div class="footer-info">
+                <span>Offline Page Indexer v1.0.0</span>
+                <span>•</span>
+                <span>Privacy-focused offline search</span>
+            </div>
+        </footer>
+    </div>
+
+    <script src="settings.js"></script>
+</body>
+</html>

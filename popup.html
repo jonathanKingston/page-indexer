@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Indexer</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="popup-container">
+        <header class="header">
+            <h1>Offline Indexer</h1>
+            <div class="status-indicator" id="statusIndicator">
+                <span class="status-dot"></span>
+                <span class="status-text">Ready</span>
+            </div>
+        </header>
+
+        <div class="stats-section">
+            <div class="stat-card">
+                <div class="stat-number" id="totalPages">0</div>
+                <div class="stat-label">Pages Indexed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalChunks">0</div>
+                <div class="stat-label">Chunks</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="storageUsage">0 MB</div>
+                <div class="stat-label">Storage Used</div>
+            </div>
+        </div>
+
+        <div class="actions-section">
+            <button class="action-btn primary" id="viewAllPages">
+                <span class="btn-icon">📄</span>
+                View All Pages
+            </button>
+            <button class="action-btn" id="searchIndex">
+                <span class="btn-icon">🔍</span>
+                Search Index
+            </button>
+            <button class="action-btn" id="openSettings">
+                <span class="btn-icon">⚙️</span>
+                Settings
+            </button>
+        </div>
+
+        <div class="recent-pages-section">
+            <h3>Recent Pages</h3>
+            <div class="recent-pages-list" id="recentPagesList">
+                <div class="loading">Loading recent pages...</div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="model-info">
+                <span class="model-name">all-MiniLM-L6-v2</span>
+                <span class="model-dims">384D</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

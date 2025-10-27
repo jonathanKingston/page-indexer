@@ -1,0 +1,35 @@
+{
+  "name": "chrome-offline-indexer",
+  "version": "1.0.0",
+  "description": "Chrome extension for offline page indexing with embeddings",
+  "main": "background.js",
+  "scripts": {
+    "setup:models": "node scripts/download-models.js",
+    "setup:ort": "node scripts/copy-ort.js",
+    "setup": "npm run setup:models && npm run setup:ort",
+    "prebuild": "npm run setup:ort",
+    "build": "esbuild offscreen.js --bundle --outfile=generated/offscreen-bundled.js --format=iife --target=es2020",
+    "build:dev": "esbuild offscreen.js --bundle --outfile=generated/offscreen-bundled.js --format=iife --target=es2020 --sourcemap",
+    "watch": "esbuild offscreen.js --bundle --outfile=generated/offscreen-bundled.js --format=iife --target=es2020 --watch",
+    "format": "prettier --write \"*.js\" \"worker/*.js\" \"scripts/*.js\"",
+    "test": "echo 'No tests specified'"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "mhtml-to-html": "^2.0.0",
+    "onnxruntime-web": "^1.17.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.19.12",
+    "prettier": "^3.6.2"
+  },
+  "keywords": [
+    "chrome-extension",
+    "embeddings",
+    "offline",
+    "mhtml",
+    "onnx"
+  ],
+  "author": "",
+  "license": "MIT"
+}
