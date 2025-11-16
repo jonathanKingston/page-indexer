@@ -9,7 +9,7 @@ A Chrome extension that automatically captures web pages as MHTML, extracts text
 ### Core Functionality
 - **Automatic Page Capture**: Uses `chrome.pageCapture.saveAsMHTML()` to capture pages on load
 - **MHTML Processing**: Extracts HTML content from MHTML using `mhtml-to-html`
-- **Text Chunking**: Splits content into 512 token segments (configurable 256-1024) with 50 token overlap using simple word-based splitting
+- **Text Chunking**: Splits content into 510 token segments with 50 token overlap using BERT WordPiece tokenization
 - **Embedding Computation**: Uses all-MiniLM-L6-v2 model via ONNX Runtime Web with WebGPU/WASM support
 - **OPFS Storage**: Persists embedding vectors and chunk data in Origin Private File System
 - **Chrome Storage**: Lightweight metadata storage for quick lookups
@@ -25,10 +25,11 @@ captures and indexes pages as you browse. No user interaction required.
 - **Chrome Storage**: Metadata (URLs, titles, timestamps, chunk counts)
 
 ### Chunking Strategy
-- Target size: 512 tokens per chunk (configurable 256-1024 in UI)
+- Target size: 510 content tokens per chunk (plus 2 special tokens: [CLS] and [SEP])
 - Overlap: 50 tokens between chunks
-- Method: Simple word-based splitting (words separated by whitespace)
-- Note: Uses word count, not actual tokenization for chunk boundaries
+- Method: BERT WordPiece tokenization with token-based chunking
+- Features: Text reconstruction for displaying readable snippets in search results
+- Note: Tokenizes entire text first, then chunks based on actual token boundaries
 
 ### Search Algorithm
 1. Compute query embedding using same model
