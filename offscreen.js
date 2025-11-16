@@ -622,35 +622,41 @@ class OffscreenController {
   }
 
   /**
-   * Chunk text into segments for embedding
+   * Chunk text into segments for embedding using token-based chunking
    * @param {string} text - Text to chunk
-   * @returns {Object[]} Array of chunk objects
+   * @returns {Object[]} Array of chunk objects with pre-computed tokens
    */
   chunkText(text) {
     const chunks = [];
-    const maxChunkSize = 512; // tokens
+    const maxContentTokens = 510; // Reserve space for [CLS] and [SEP]
     const overlap = 50; // tokens
 
-    // Simple word-based chunking (in production, use proper tokenization)
-    const words = text.split(/\s+/);
-    const chunks_text = [];
+    // Step 1: Tokenize the full text FIRST
+    const fullTokens = this.tokenize(text);
 
-    for (let i = 0; i < words.length; i += maxChunkSize - overlap) {
-      const chunkWords = words.slice(i, i + maxChunkSize);
-      chunks_text.push(chunkWords.join(' '));
+    // Remove [CLS] (first token) and [SEP] (last token) for re-chunking
+    // The tokenizer adds these, but we'll add them back per chunk
+    const contentTokens = fullTokens.slice(1, -1);
+
+    console.log(`Full text tokenized to ${fullTokens.length} tokens (${contentTokens.length} content tokens)`);
+
+    // Step 2: Split tokens into overlapping chunks
+    for (let i = 0; i < contentTokens.length; i += maxContentTokens - overlap) {
+      const chunkTokens = contentTokens.slice(i, Math.min(i + maxContentTokens, contentTokens.length));
+
+      // Add [CLS] (101) at start and [SEP] (102) at end
+      const finalTokens = [this.tokenizer.clsId, ...chunkTokens, this.tokenizer.sepId];
+
+      chunks.push({
+        id: `chunk_${chunks.length}`,
+        tokens: finalTokens,
+        tokenCount: finalTokens.length,
+        startTokenIndex: i,
+        endTokenIndex: Math.min(i + maxContentTokens, contentTokens.length),
+      });
     }
 
-    // Create chunk objects
-    chunks_text.forEach((chunkText, index) => {
-      chunks.push({
-        id: `chunk_${index}`,
-        text: chunkText,
-        startIndex: index * (maxChunkSize - overlap),
-        endIndex: Math.min((index + 1) * maxChunkSize - overlap, words.length),
-        tokenCount: chunkText.split(/\s+/).length,
-      });
-    });
-
+    console.log(`Created ${chunks.length} token-based chunks`);
     return chunks;
   }
 
@@ -686,8 +692,8 @@ class OffscreenController {
   }
 
   /**
-   * Compute embeddings for text chunks
-   * @param {Object[]} chunks - Array of chunk objects
+   * Compute embeddings for text chunks (using pre-tokenized chunks)
+   * @param {Object[]} chunks - Array of chunk objects with pre-computed tokens
    * @returns {Float32Array[]} Array of embedding vectors
    */
   async computeEmbeddings(chunks) {
@@ -696,8 +702,8 @@ class OffscreenController {
 
     for (const chunk of chunks) {
       try {
-        // Add timeout to prevent hanging
-        const embeddingPromise = this.computeSingleEmbedding(chunk.text);
+        // Use pre-tokenized tokens directly from chunk
+        const embeddingPromise = this.computeSingleEmbeddingFromTokens(chunk.tokens);
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Embedding computation timeout')), 30000)
         );
@@ -712,6 +718,7 @@ class OffscreenController {
     }
 
     const totalTime = Date.now() - startTime;
+    console.log(`Computed ${embeddings.length} embeddings in ${totalTime}ms`);
 
     return embeddings;
   }
@@ -879,6 +886,95 @@ class OffscreenController {
       console.error('Error message:', error.message || error);
       console.error('Error stack:', error.stack || 'No stack');
       console.error('Full error object:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Compute embedding for pre-tokenized input
+   * @param {number[]} tokens - Pre-computed token IDs (including [CLS] and [SEP])
+   * @returns {Float32Array} Embedding vector
+   */
+  async computeSingleEmbeddingFromTokens(tokens) {
+    if (!this.ort || !this.session) {
+      throw new Error('ONNX Runtime not initialized. Please ensure the model is downloaded.');
+    }
+
+    try {
+      console.log('Computing embedding from', tokens.length, 'pre-computed tokens');
+
+      // Validate token count (should already include [CLS] and [SEP])
+      const MAX_SEQUENCE_LENGTH = 512;
+      if (tokens.length > MAX_SEQUENCE_LENGTH) {
+        console.warn(`Token count ${tokens.length} exceeds max ${MAX_SEQUENCE_LENGTH}, truncating`);
+        tokens = tokens.slice(0, MAX_SEQUENCE_LENGTH);
+      }
+
+      // Prepare input for ONNX model - use BigInt64Array as required
+      const inputIds = new BigInt64Array(tokens.map(t => BigInt(t)));
+      const actualLength = tokens.length;
+      const attentionMask = new BigInt64Array(actualLength).fill(1n);
+      const tokenTypeIds = new BigInt64Array(actualLength).fill(0n);
+
+      // Create input tensors
+      const inputIdsTensor = new this.ort.Tensor('int64', inputIds, [1, actualLength]);
+      const attentionMaskTensor = new this.ort.Tensor('int64', attentionMask, [1, actualLength]);
+      const tokenTypeIdsTensor = new this.ort.Tensor('int64', tokenTypeIds, [1, actualLength]);
+
+      // Run inference
+      const inferenceStart = Date.now();
+      console.log('Running ONNX inference...');
+
+      let results;
+      try {
+        results = await this.session.run({
+          input_ids: inputIdsTensor,
+          attention_mask: attentionMaskTensor,
+          token_type_ids: tokenTypeIdsTensor,
+        });
+      } catch (runtimeError) {
+        console.error('ONNX Runtime error:', runtimeError?.message);
+        inputIdsTensor.dispose();
+        attentionMaskTensor.dispose();
+        tokenTypeIdsTensor.dispose();
+        throw new Error(`ONNX Runtime inference failed: ${runtimeError}`);
+      }
+
+      const inferenceTime = Date.now() - inferenceStart;
+      console.log('ONNX inference completed in', inferenceTime, 'ms');
+
+      // Extract embeddings from last_hidden_state
+      const hiddenState = results.last_hidden_state.data;
+      const dims = results.last_hidden_state.dims;
+
+      if (!dims || dims.length !== 3) {
+        throw new Error(`Expected 3D tensor, got ${dims?.length}D tensor`);
+      }
+
+      const batchSize = dims[0];
+      const seqLength = dims[1];
+      const hiddenSize = dims[2];
+
+      // Average pool over sequence length
+      const embedding = new Float32Array(hiddenSize);
+      for (let i = 0; i < hiddenSize; i++) {
+        let sum = 0;
+        for (let j = 0; j < seqLength; j++) {
+          sum += hiddenState[j * hiddenSize + i];
+        }
+        embedding[i] = sum / seqLength;
+      }
+
+      console.log('Generated embedding vector of size:', embedding.length);
+
+      // Clean up tensors
+      inputIdsTensor.dispose();
+      attentionMaskTensor.dispose();
+      tokenTypeIdsTensor.dispose();
+
+      return embedding;
+    } catch (error) {
+      console.error('Failed to compute embedding from tokens:', error.message);
       throw error;
     }
   }
