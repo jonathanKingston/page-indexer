@@ -5,34 +5,25 @@
 
 /**
  * Logger class for conditional debug logging
+ * Uses closures to preserve correct console line numbers
  */
 class Logger {
-  constructor(enabled = false) {
+  constructor(enabled = true) {
     this.enabled = enabled;
+
+    // Create bound references to console methods to preserve line numbers
+    this.log = this.enabled ? console.log.bind(console) : () => {};
+    this.warn = console.warn.bind(console);
+    this.error = console.error.bind(console);
+    this.info = this.enabled ? console.log.bind(console) : () => {};
   }
 
   setEnabled(enabled) {
     this.enabled = enabled;
-  }
-
-  log(...args) {
-    if (this.enabled) {
-      console.log(...args);
-    }
-  }
-
-  warn(...args) {
-    console.warn(...args);
-  }
-
-  error(...args) {
-    console.error(...args);
-  }
-
-  info(...args) {
-    if (this.enabled) {
-      console.log(...args);
-    }
+    // Update bound methods when enabled state changes
+    this.log = enabled ? console.log.bind(console) : () => {};
+    this.info = enabled ? console.log.bind(console) : () => {};
+    // warn and error are always enabled
   }
 }
 
@@ -45,7 +36,7 @@ class OffscreenController {
     this.tokenizer = null;
     this.modelPath = null;
     this.initialized = false;
-    this.logger = new Logger(false);
+    this.logger = new Logger(); // Enabled by default
 
     // Constants for chunking
     this.MAX_SEQUENCE_LENGTH = 512;
