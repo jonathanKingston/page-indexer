@@ -21,7 +21,19 @@ class BackgroundService {
       storePageContent: true,
       enableDebugLogging: false,
       enableVisualization: false,
+      searchMode: 'hybrid', // 'dense', 'bm25', or 'hybrid'
     };
+
+    // BM25 inverted index data structures
+    this.invertedIndex = new Map(); // term -> [{pageId, chunkId, termFreq, positions}]
+    this.documentFrequency = new Map(); // term -> number of documents containing term
+    this.documentLengths = new Map(); // (pageId, chunkId) -> document length in tokens
+    this.averageDocumentLength = 0;
+    this.totalDocuments = 0;
+
+    // BM25 parameters
+    this.bm25_k1 = 1.2;
+    this.bm25_b = 0.75;
   }
 
   /**
@@ -36,6 +48,9 @@ class BackgroundService {
 
       // Load settings
       await this.loadSettings();
+
+      // Load BM25 index from OPFS
+      await this.loadBM25Index();
 
       // No mock data - extension works only with real indexed pages
 
@@ -549,6 +564,14 @@ class BackgroundService {
 
       await vectorsWritable.write(buffer);
       await vectorsWritable.close();
+
+      // Build BM25 inverted index for each chunk
+      for (const chunk of chunks) {
+        this.buildBM25Index(pageId, chunk.id, chunk.text);
+      }
+
+      // Save BM25 index to OPFS
+      await this.saveBM25Index();
     } catch (error) {
       console.error(`Failed to store page data for ${pageId}:`, error);
       throw error;
@@ -752,14 +775,30 @@ class BackgroundService {
 
   /**
    * Perform semantic search using embeddings via search worker
+   * Supports multiple search modes: dense, bm25, or hybrid
    * @param {string} query - Search query
    * @param {number} limit - Number of results
+   * @param {string} mode - Search mode: 'dense', 'bm25', or 'hybrid' (optional, uses settings.searchMode if not provided)
    * @returns {Array} Search results
    */
-  async semanticSearch(query, limit = 10) {
+  async semanticSearch(query, limit = 10, mode = null) {
     try {
-      // Use search worker for embedding search
-      return await this.searchWithWorker(query, limit);
+      const searchMode = mode || this.settings.searchMode || 'hybrid';
+
+      switch (searchMode) {
+        case 'bm25':
+          // BM25 keyword search only
+          return await this.bm25Search(query, limit);
+
+        case 'dense':
+          // Dense vector search only
+          return await this.searchWithWorker(query, limit);
+
+        case 'hybrid':
+        default:
+          // Hybrid search combining BM25 and dense vectors
+          return await this.hybridSearch(query, limit);
+      }
     } catch (error) {
       console.error('Semantic search failed:', error);
       throw error;
@@ -796,46 +835,56 @@ class BackgroundService {
       const pageEntries = Array.from(this.pages.entries());
       const results = [];
 
-      // Search through all pages and their chunks
-      for (const [pageId, page] of pageEntries) {
-        try {
-          if (!pageId) {
-            console.warn('Skipping page with undefined pageId:', page);
-            continue;
-          }
+      // Load all page data in parallel using Promise.all()
+      const pageDataPromises = pageEntries.map(([pageId, page]) =>
+        this.getPageData(pageId)
+          .then(pageData => ({ pageId, page, pageData }))
+          .catch(error => {
+            console.warn(`Failed to load page ${pageId}:`, error);
+            return null; // Return null for failed loads
+          })
+      );
 
-          const pageData = await this.getPageData(pageId);
+      const loadedPages = await Promise.all(pageDataPromises);
 
-          if (pageData.chunks && pageData.embeddings) {
-            // Search through chunks using real embeddings
-            for (let i = 0; i < pageData.chunks.length; i++) {
-              const chunk = pageData.chunks[i];
-              let embedding = pageData.embeddings[i];
+      // Search through all loaded pages and their chunks
+      for (const loadedPage of loadedPages) {
+        // Skip failed loads
+        if (!loadedPage) continue;
 
-              // Convert embedding to Float32Array if needed
-              if (embedding && !(embedding instanceof Float32Array)) {
-                embedding = new Float32Array(Object.values(embedding));
-              }
+        const { pageId, page, pageData } = loadedPage;
 
-              if (embedding && embedding.length === queryEmbedding.length) {
-                const similarity = this.cosineSimilarity(queryEmbedding, embedding);
+        if (!pageId) {
+          console.warn('Skipping page with undefined pageId:', page);
+          continue;
+        }
 
-                results.push({
-                  pageId: pageId,
-                  pageTitle: page.title,
-                  pageUrl: page.url,
-                  chunkId: chunk.id,
-                  chunkText: chunk.text,
-                  similarity: similarity,
-                  timestamp: page.timestamp,
-                });
-              } else if (embedding) {
-              }
+        if (pageData.chunks && pageData.embeddings) {
+          // Search through chunks using real embeddings
+          for (let i = 0; i < pageData.chunks.length; i++) {
+            const chunk = pageData.chunks[i];
+            let embedding = pageData.embeddings[i];
+
+            // Convert embedding to Float32Array if needed
+            if (embedding && !(embedding instanceof Float32Array)) {
+              embedding = new Float32Array(Object.values(embedding));
+            }
+
+            if (embedding && embedding.length === queryEmbedding.length) {
+              const similarity = this.cosineSimilarity(queryEmbedding, embedding);
+
+              results.push({
+                pageId: pageId,
+                pageTitle: page.title,
+                pageUrl: page.url,
+                chunkId: chunk.id,
+                chunkText: chunk.text,
+                similarity: similarity,
+                timestamp: page.timestamp,
+              });
+            } else if (embedding) {
             }
           }
-        } catch (error) {
-          console.warn(`Failed to search page ${pageId}:`, error);
-          // Continue with other pages
         }
       }
 
@@ -1272,6 +1321,292 @@ class BackgroundService {
   }
 
   /**
+   * BM25 tokenization: simple word-based tokenization for keyword matching
+   * Different from WordPiece tokenization used for embeddings
+   * @param {string} text - Text to tokenize
+   * @returns {string[]} Array of tokens
+   */
+  bm25Tokenize(text) {
+    if (!text || typeof text !== 'string') return [];
+
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ') // Replace punctuation with spaces
+      .split(/\s+/)
+      .filter(token => token.length > 2); // Filter out very short tokens
+  }
+
+  /**
+   * Build BM25 inverted index for a chunk
+   * @param {string} pageId - Page ID
+   * @param {string} chunkId - Chunk ID
+   * @param {string} text - Chunk text
+   */
+  buildBM25Index(pageId, chunkId, text) {
+    const tokens = this.bm25Tokenize(text);
+    const docKey = `${pageId}:${chunkId}`;
+
+    // Store document length
+    this.documentLengths.set(docKey, tokens.length);
+    this.totalDocuments++;
+
+    // Update average document length
+    let totalLength = 0;
+    for (const length of this.documentLengths.values()) {
+      totalLength += length;
+    }
+    this.averageDocumentLength = totalLength / this.totalDocuments;
+
+    // Build term frequency and positions for this document
+    const termFrequencies = new Map();
+    const termPositions = new Map();
+
+    tokens.forEach((token, position) => {
+      termFrequencies.set(token, (termFrequencies.get(token) || 0) + 1);
+      if (!termPositions.has(token)) {
+        termPositions.set(token, []);
+      }
+      termPositions.get(token).push(position);
+    });
+
+    // Update inverted index
+    for (const [term, freq] of termFrequencies.entries()) {
+      if (!this.invertedIndex.has(term)) {
+        this.invertedIndex.set(term, []);
+      }
+
+      const postingsList = this.invertedIndex.get(term);
+      postingsList.push({
+        pageId,
+        chunkId,
+        termFreq: freq,
+        positions: termPositions.get(term),
+      });
+
+      // Update document frequency
+      this.documentFrequency.set(term, (this.documentFrequency.get(term) || 0) + 1);
+    }
+  }
+
+  /**
+   * Calculate BM25 score for a document
+   * @param {number} termFreq - Term frequency in document
+   * @param {number} docFreq - Document frequency (number of docs containing term)
+   * @param {number} docLength - Length of document
+   * @returns {number} BM25 score
+   */
+  calculateBM25Score(termFreq, docFreq, docLength) {
+    const idf = Math.log((this.totalDocuments - docFreq + 0.5) / (docFreq + 0.5) + 1);
+    const tf =
+      (termFreq * (this.bm25_k1 + 1)) /
+      (termFreq + this.bm25_k1 * (1 - this.bm25_b + this.bm25_b * (docLength / this.averageDocumentLength)));
+    return idf * tf;
+  }
+
+  /**
+   * BM25 search
+   * @param {string} query - Search query
+   * @param {number} limit - Number of results to return
+   * @returns {Array} Search results
+   */
+  async bm25Search(query, limit = 50) {
+    const queryTokens = this.bm25Tokenize(query);
+    if (queryTokens.length === 0) return [];
+
+    const scores = new Map(); // docKey -> score
+
+    // Calculate BM25 scores for each document
+    for (const queryToken of queryTokens) {
+      if (!this.invertedIndex.has(queryToken)) continue;
+
+      const postings = this.invertedIndex.get(queryToken);
+      const docFreq = this.documentFrequency.get(queryToken) || 0;
+
+      for (const posting of postings) {
+        const docKey = `${posting.pageId}:${posting.chunkId}`;
+        const docLength = this.documentLengths.get(docKey) || 1;
+        const score = this.calculateBM25Score(posting.termFreq, docFreq, docLength);
+
+        scores.set(docKey, (scores.get(docKey) || 0) + score);
+      }
+    }
+
+    // Convert to array and sort by score
+    const results = [];
+    for (const [docKey, score] of scores.entries()) {
+      const [pageId, chunkId] = docKey.split(':');
+      const page = this.pages.get(pageId);
+      if (!page) continue;
+
+      // Get chunk text
+      const chunks = await this.getPageChunks(pageId);
+      const chunk = chunks.find(c => c.id === chunkId);
+
+      if (chunk) {
+        results.push({
+          pageId,
+          pageTitle: page.title,
+          pageUrl: page.url,
+          chunkId,
+          chunkText: chunk.text,
+          score,
+          timestamp: page.timestamp,
+        });
+      }
+    }
+
+    // Sort by score descending and return top results
+    return results.sort((a, b) => b.score - a.score).slice(0, limit);
+  }
+
+  /**
+   * Reciprocal Rank Fusion (RRF) to combine multiple ranking systems
+   * @param {Array} rankings - Array of ranking arrays, each with items having a score
+   * @param {number} k - Constant for RRF (default 60)
+   * @returns {Array} Combined ranking
+   */
+  reciprocalRankFusion(rankings, k = 60) {
+    const rrfScores = new Map(); // docKey -> RRF score
+    const docData = new Map(); // docKey -> document data
+
+    rankings.forEach(ranking => {
+      ranking.forEach((item, rank) => {
+        const docKey = `${item.pageId}:${item.chunkId}`;
+        const rrfScore = 1 / (rank + k);
+
+        rrfScores.set(docKey, (rrfScores.get(docKey) || 0) + rrfScore);
+
+        // Store document data (use first occurrence)
+        if (!docData.has(docKey)) {
+          docData.set(docKey, item);
+        }
+      });
+    });
+
+    // Convert to array and sort by RRF score
+    const results = [];
+    for (const [docKey, rrfScore] of rrfScores.entries()) {
+      const item = docData.get(docKey);
+      results.push({
+        ...item,
+        rrfScore,
+      });
+    }
+
+    return results.sort((a, b) => b.rrfScore - a.rrfScore);
+  }
+
+  /**
+   * Hybrid search combining BM25 and dense vector search
+   * @param {string} query - Search query
+   * @param {number} limit - Number of final results to return
+   * @returns {Array} Combined search results
+   */
+  async hybridSearch(query, limit = 10) {
+    try {
+      // Run both searches in parallel
+      const [bm25Results, denseResults] = await Promise.all([
+        this.bm25Search(query, 50), // Get top 50 from BM25
+        this.searchWithWorker(query, 50), // Get top 50 from dense search
+      ]);
+
+      // Normalize scores to be comparable
+      // For BM25 results, use the BM25 score as similarity
+      const bm25Normalized = bm25Results.map(r => ({
+        ...r,
+        similarity: r.score, // Use BM25 score as similarity for consistency
+      }));
+
+      // Combine using Reciprocal Rank Fusion
+      const combined = this.reciprocalRankFusion([bm25Normalized, denseResults], 60);
+
+      // Return top K results
+      return combined.slice(0, limit);
+    } catch (error) {
+      console.error('Hybrid search failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Save BM25 inverted index to OPFS
+   */
+  async saveBM25Index() {
+    try {
+      const opfsRoot = await navigator.storage.getDirectory();
+      const indexDir = await opfsRoot.getDirectoryHandle('index', { create: true });
+
+      // Convert Maps to plain objects for JSON serialization
+      const indexData = {
+        invertedIndex: Array.from(this.invertedIndex.entries()).map(([term, postings]) => ({
+          term,
+          postings,
+        })),
+        documentFrequency: Array.from(this.documentFrequency.entries()).map(([term, freq]) => ({
+          term,
+          freq,
+        })),
+        documentLengths: Array.from(this.documentLengths.entries()).map(([docKey, length]) => ({
+          docKey,
+          length,
+        })),
+        averageDocumentLength: this.averageDocumentLength,
+        totalDocuments: this.totalDocuments,
+      };
+
+      // Write to OPFS
+      const indexFile = await indexDir.getFileHandle('inverted.json', { create: true });
+      const writable = await indexFile.createWritable();
+      await writable.write(JSON.stringify(indexData));
+      await writable.close();
+    } catch (error) {
+      console.error('Failed to save BM25 index to OPFS:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Load BM25 inverted index from OPFS
+   */
+  async loadBM25Index() {
+    try {
+      const opfsRoot = await navigator.storage.getDirectory();
+      const indexDir = await opfsRoot.getDirectoryHandle('index');
+      const indexFile = await indexDir.getFileHandle('inverted.json');
+      const file = await indexFile.getFile();
+      const text = await file.text();
+      const indexData = JSON.parse(text);
+
+      // Restore Maps from plain objects
+      this.invertedIndex = new Map(
+        indexData.invertedIndex.map(item => [item.term, item.postings])
+      );
+      this.documentFrequency = new Map(
+        indexData.documentFrequency.map(item => [item.term, item.freq])
+      );
+      this.documentLengths = new Map(
+        indexData.documentLengths.map(item => [item.docKey, item.length])
+      );
+      this.averageDocumentLength = indexData.averageDocumentLength || 0;
+      this.totalDocuments = indexData.totalDocuments || 0;
+
+      console.log('BM25 index loaded from OPFS:', {
+        terms: this.invertedIndex.size,
+        documents: this.totalDocuments,
+        avgDocLength: this.averageDocumentLength,
+      });
+    } catch (error) {
+      console.log('No existing BM25 index found in OPFS, starting fresh');
+      // Initialize empty index structures
+      this.invertedIndex = new Map();
+      this.documentFrequency = new Map();
+      this.documentLengths = new Map();
+      this.averageDocumentLength = 0;
+      this.totalDocuments = 0;
+    }
+  }
+
+  /**
    * Compute cosine similarity between two embeddings
    */
   cosineSimilarity(a, b) {
@@ -1378,7 +1713,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     case 'SEMANTIC_SEARCH':
       backgroundService
-        .semanticSearch(data.query, data.limit || 10)
+        .semanticSearch(data.query, data.limit || 10, data.mode)
+        .then(results => sendResponse({ success: true, data: results }))
+        .catch(error => sendResponse({ success: false, error: error.message }));
+      return true;
+
+    case 'BM25_SEARCH':
+      backgroundService
+        .bm25Search(data.query, data.limit || 10)
+        .then(results => sendResponse({ success: true, data: results }))
+        .catch(error => sendResponse({ success: false, error: error.message }));
+      return true;
+
+    case 'HYBRID_SEARCH':
+      backgroundService
+        .hybridSearch(data.query, data.limit || 10)
         .then(results => sendResponse({ success: true, data: results }))
         .catch(error => sendResponse({ success: false, error: error.message }));
       return true;
