@@ -19,69 +19,69 @@
 
 | # | Enhancement | Severity | Time | Effort | Quick Win | Priority Score |
 |---|-------------|----------|------|--------|-----------|----------------|
-| 1 | Proper BERT Tokenization | Critical | Long | 🔴 | No | 9 |
-| 2 | Incremental Indexing | Critical | Long | 🔴 | No | 9 |
-| 3 | Scalable Search Architecture | Critical | Extended | ⚫ | No | 10 |
-| 4 | Advanced Search Ranking | High | Long | 🔴 | No | 8 |
-| 5 | ONNX Runtime Optimization | High | Medium | 🟠 | Yes | 7 |
-| 6 | Batch Processing | High | Medium | 🟠 | Yes | 7 |
-| 7 | Web Workers for Parallel Processing | High | Long | 🔴 | No | 8 |
-| 8 | Storage Optimization | High | Long | 🔴 | No | 8 |
-| 9 | Lazy Loading & Pagination | High | Short | 🟡 | Yes | 6 |
-| 10 | Search UX Improvements | High | Medium | 🟠 | No | 7 |
-| 11 | Visual Enhancements | Medium | Short | 🟡 | Yes | 5 |
-| 12 | Page Management UI | Medium | Medium | 🟠 | No | 6 |
-| 13 | Advanced Filtering | Medium | Medium | 🟠 | No | 6 |
-| 14 | Keyboard Shortcuts | Medium | Quick | 🟢 | Yes | 4 |
-| 15 | TypeScript Migration | High | Extended | ⚫ | No | 9 |
-| 16 | Comprehensive Testing | High | Extended | ⚫ | No | 9 |
-| 17 | Error Handling & Retry Logic | High | Short | 🟡 | Yes | 6 |
-| 18 | Code Documentation | Medium | Medium | 🟠 | No | 6 |
-| 19 | Linting & Code Standards | Medium | Quick | 🟢 | Yes | 4 |
-| 20 | Export/Import Functionality | High | Medium | 🟠 | No | 7 |
-| 21 | Smart Content Extraction | Medium | Medium | 🟠 | No | 6 |
-| 22 | Multi-Language Support | Medium | Extended | ⚫ | No | 7 |
-| 23 | Collection/Workspace Management | Medium | Long | 🔴 | No | 7 |
-| 24 | Smart Recommendations | Low | Long | 🔴 | No | 5 |
-| 25 | Question Answering Mode | Low | Extended | ⚫ | No | 6 |
-| 26 | Browser History Integration | Medium | Short | 🟡 | Yes | 5 |
-| 27 | PDF & Document Support | Medium | Long | 🔴 | No | 7 |
-| 28 | Screenshot & Visual Search | Low | Extended | ⚫ | No | 6 |
-| 29 | Data Encryption | High | Medium | 🟠 | No | 7 |
-| 30 | Privacy Mode | High | Short | 🟡 | Yes | 6 |
-| 31 | Permissions Audit | Medium | Quick | 🟢 | Yes | 4 |
-| 32 | Content Security Policy | High | Quick | 🟢 | Yes | 5 |
-| 33 | Usage Analytics | Medium | Medium | 🟠 | No | 6 |
-| 34 | Performance Metrics | Medium | Medium | 🟠 | No | 6 |
-| 35 | Health Dashboard | Medium | Short | 🟡 | Yes | 5 |
-| 36 | Boolean Search Operators | Medium | Short | 🟡 | Yes | 5 |
-| 37 | Faceted Search | Medium | Medium | 🟠 | No | 6 |
-| 38 | Search Result Clustering | Low | Long | 🔴 | No | 5 |
-| 39 | Saved Searches | Medium | Short | 🟡 | Yes | 5 |
-| 40 | Automatic Cleanup | High | Short | 🟡 | Yes | 6 |
-| 41 | Storage Quota Management | High | Short | 🟡 | Yes | 6 |
-| 42 | Deduplication | High | Medium | 🟠 | No | 7 |
-| 43 | Backup & Restore | Medium | Medium | 🟠 | No | 6 |
-| 44 | Developer Tools Integration | Low | Long | 🔴 | No | 5 |
-| 45 | API for External Tools | Low | Medium | 🟠 | No | 5 |
-| 46 | Build & Deploy Automation | Medium | Short | 🟡 | Yes | 5 |
-| 47 | Hot Reload Development | Medium | Short | 🟡 | Yes | 5 |
-| 48 | Firefox Support | Medium | Long | 🔴 | No | 7 |
-| 49 | Safari Support | Low | Extended | ⚫ | No | 6 |
-| 50 | Multi-Model Support | Medium | Long | 🔴 | No | 7 |
-| 51 | Fine-Tuned Models | Low | Extended | ⚫ | No | 6 |
-| 52 | Hybrid Search | High | Long | 🔴 | No | 8 |
-| 53 | Mobile Browser Support | Low | Long | 🔴 | No | 5 |
-| 54 | Standalone App | Low | Extended | ⚫ | No | 6 |
-| 55 | Cloud Sync (Optional) | Medium | Extended | ⚫ | No | 7 |
-| 56 | Shared Collections | Low | Extended | ⚫ | No | 6 |
-| 57 | Auto-Tagging | Low | Long | 🔴 | No | 5 |
-| 58 | Summary Generation | Low | Extended | ⚫ | No | 6 |
-| 59 | Knowledge Graph | Low | Extended | ⚫ | No | 6 |
-| 60 | Voice Search | Low | Long | 🔴 | No | 5 |
-| 61 | Distributed Processing | Low | Extended | ⚫ | No | 6 |
-| 62 | Incremental Vector Updates | Medium | Long | 🔴 | No | 7 |
-| 63 | Lazy Embedding Computation | Medium | Medium | 🟠 | No | 6 |
+| 1 | [Proper BERT Tokenization](#1-proper-bert-tokenization) | Critical | Long | 🔴 | No | 9 |
+| 2 | [Incremental Indexing](#2-incremental-indexing) | Critical | Long | 🔴 | No | 9 |
+| 3 | [Scalable Search Architecture](#3-scalable-search-architecture) | Critical | Extended | ⚫ | No | 10 |
+| 4 | [Advanced Search Ranking](#4-advanced-search-ranking) | High | Long | 🔴 | No | 8 |
+| 5 | [ONNX Runtime Optimization](#5-onnx-runtime-optimization) | High | Medium | 🟠 | Yes | 7 |
+| 6 | [Batch Processing](#6-batch-processing) | High | Medium | 🟠 | Yes | 7 |
+| 7 | [Web Workers for Parallel Processing](#7-web-workers-for-parallel-processing) | High | Long | 🔴 | No | 8 |
+| 8 | [Storage Optimization](#8-storage-optimization) | High | Long | 🔴 | No | 8 |
+| 9 | [Lazy Loading & Pagination](#9-lazy-loading--pagination) | High | Short | 🟡 | Yes | 6 |
+| 10 | [Search UX Improvements](#10-search-ux-improvements) | High | Medium | 🟠 | No | 7 |
+| 11 | [Visual Enhancements](#11-visual-enhancements) | Medium | Short | 🟡 | Yes | 5 |
+| 12 | [Page Management UI](#12-page-management-ui) | Medium | Medium | 🟠 | No | 6 |
+| 13 | [Advanced Filtering](#13-advanced-filtering) | Medium | Medium | 🟠 | No | 6 |
+| 14 | [Keyboard Shortcuts](#14-keyboard-shortcuts) | Medium | Quick | 🟢 | Yes | 4 |
+| 15 | [TypeScript Migration](#15-typescript-migration) | High | Extended | ⚫ | No | 9 |
+| 16 | [Comprehensive Testing](#16-comprehensive-testing) | High | Extended | ⚫ | No | 9 |
+| 17 | [Error Handling & Retry Logic](#17-error-handling--retry-logic) | High | Short | 🟡 | Yes | 6 |
+| 18 | [Code Documentation](#18-code-documentation) | Medium | Medium | 🟠 | No | 6 |
+| 19 | [Linting & Code Standards](#19-linting--code-standards) | Medium | Quick | 🟢 | Yes | 4 |
+| 20 | [Export/Import Functionality](#20-exportimport-functionality) | High | Medium | 🟠 | No | 7 |
+| 21 | [Smart Content Extraction](#21-smart-content-extraction) | Medium | Medium | 🟠 | No | 6 |
+| 22 | [Multi-Language Support](#22-multi-language-support) | Medium | Extended | ⚫ | No | 7 |
+| 23 | [Collection/Workspace Management](#23-collectionworkspace-management) | Medium | Long | 🔴 | No | 7 |
+| 24 | [Smart Recommendations](#24-smart-recommendations) | Low | Long | 🔴 | No | 5 |
+| 25 | [Question Answering Mode](#25-question-answering-mode) | Low | Extended | ⚫ | No | 6 |
+| 26 | [Browser History Integration](#26-browser-history-integration) | Medium | Short | 🟡 | Yes | 5 |
+| 27 | [PDF & Document Support](#27-pdf--document-support) | Medium | Long | 🔴 | No | 7 |
+| 28 | [Screenshot & Visual Search](#28-screenshot--visual-search) | Low | Extended | ⚫ | No | 6 |
+| 29 | [Data Encryption](#29-data-encryption) | High | Medium | 🟠 | No | 7 |
+| 30 | [Privacy Mode](#30-privacy-mode) | High | Short | 🟡 | Yes | 6 |
+| 31 | [Permissions Audit](#31-permissions-audit) | Medium | Quick | 🟢 | Yes | 4 |
+| 32 | [Content Security Policy](#32-content-security-policy) | High | Quick | 🟢 | Yes | 5 |
+| 33 | [Usage Analytics](#33-usage-analytics) | Medium | Medium | 🟠 | No | 6 |
+| 34 | [Performance Metrics](#34-performance-metrics) | Medium | Medium | 🟠 | No | 6 |
+| 35 | [Health Dashboard](#35-health-dashboard) | Medium | Short | 🟡 | Yes | 5 |
+| 36 | [Boolean Search Operators](#36-boolean-search-operators) | Medium | Short | 🟡 | Yes | 5 |
+| 37 | [Faceted Search](#37-faceted-search) | Medium | Medium | 🟠 | No | 6 |
+| 38 | [Search Result Clustering](#38-search-result-clustering) | Low | Long | 🔴 | No | 5 |
+| 39 | [Saved Searches](#39-saved-searches) | Medium | Short | 🟡 | Yes | 5 |
+| 40 | [Automatic Cleanup](#40-automatic-cleanup) | High | Short | 🟡 | Yes | 6 |
+| 41 | [Storage Quota Management](#41-storage-quota-management) | High | Short | 🟡 | Yes | 6 |
+| 42 | [Deduplication](#42-deduplication) | High | Medium | 🟠 | No | 7 |
+| 43 | [Backup & Restore](#43-backup--restore) | Medium | Medium | 🟠 | No | 6 |
+| 44 | [Developer Tools Integration](#44-developer-tools-integration) | Low | Long | 🔴 | No | 5 |
+| 45 | [API for External Tools](#45-api-for-external-tools) | Low | Medium | 🟠 | No | 5 |
+| 46 | [Build & Deploy Automation](#46-build--deploy-automation) | Medium | Short | 🟡 | Yes | 5 |
+| 47 | [Hot Reload Development](#47-hot-reload-development) | Medium | Short | 🟡 | Yes | 5 |
+| 48 | [Firefox Support](#48-firefox-support) | Medium | Long | 🔴 | No | 7 |
+| 49 | [Safari Support](#49-safari-support) | Low | Extended | ⚫ | No | 6 |
+| 50 | [Multi-Model Support](#50-multi-model-support) | Medium | Long | 🔴 | No | 7 |
+| 51 | [Fine-Tuned Models](#51-fine-tuned-models) | Low | Extended | ⚫ | No | 6 |
+| 52 | [Hybrid Search](#52-hybrid-search) | High | Long | 🔴 | No | 8 |
+| 53 | [Mobile Browser Support](#53-mobile-browser-support) | Low | Long | 🔴 | No | 5 |
+| 54 | [Standalone App](#54-standalone-app) | Low | Extended | ⚫ | No | 6 |
+| 55 | [Cloud Sync (Optional)](#55-cloud-sync-optional) | Medium | Extended | ⚫ | No | 7 |
+| 56 | [Shared Collections](#56-shared-collections) | Low | Extended | ⚫ | No | 6 |
+| 57 | [Auto-Tagging](#57-auto-tagging) | Low | Long | 🔴 | No | 5 |
+| 58 | [Summary Generation](#58-summary-generation) | Low | Extended | ⚫ | No | 6 |
+| 59 | [Knowledge Graph](#59-knowledge-graph) | Low | Extended | ⚫ | No | 6 |
+| 60 | [Voice Search](#60-voice-search) | Low | Long | 🔴 | No | 5 |
+| 61 | [Distributed Processing](#61-distributed-processing) | Low | Extended | ⚫ | No | 6 |
+| 62 | [Incremental Vector Updates](#62-incremental-vector-updates) | Medium | Long | 🔴 | No | 7 |
+| 63 | [Lazy Embedding Computation](#63-lazy-embedding-computation) | Medium | Medium | 🟠 | No | 6 |
 
 ---
 
@@ -1889,23 +1889,23 @@ These provide significant value with minimal implementation time:
 
 | Enhancement | Severity | Time | Why It's a Quick Win |
 |-------------|----------|------|---------------------|
-| #14: Keyboard Shortcuts | Medium | Quick | Simple event listeners, big UX boost |
-| #19: Linting & Code Standards | Medium | Quick | Run ESLint setup, prevent future bugs |
-| #31: Permissions Audit | Medium | Quick | Review manifest.json, minimal changes |
-| #32: Content Security Policy | High | Quick | Update manifest, critical security |
-| #5: ONNX Runtime Optimization | High | Medium | Cache model, preload on install |
-| #6: Batch Processing | High | Medium | Refactor inference loop, major perf boost |
-| #9: Lazy Loading & Pagination | High | Short | Implement virtual scrolling, better UX |
-| #11: Visual Enhancements | Medium | Short | CSS improvements, polish |
-| #17: Error Handling & Retry Logic | High | Short | Add try/catch, exponential backoff |
-| #30: Privacy Mode | High | Short | Toggle settings, skip content storage |
-| #35: Health Dashboard | Medium | Short | Display existing stats, simple UI |
-| #36: Boolean Search Operators | Medium | Short | Parse query, filter results |
-| #39: Saved Searches | Medium | Short | Store in chrome.storage, simple UI |
-| #40: Automatic Cleanup | High | Short | Cron-like background job, delete old data |
-| #41: Storage Quota Management | High | Short | Check quota API, show warnings |
-| #46: Build & Deploy Automation | Medium | Short | GitHub Actions workflow |
-| #47: Hot Reload Development | Medium | Short | Watch files, reload extension |
+| [#14: Keyboard Shortcuts](#14-keyboard-shortcuts) | Medium | Quick | Simple event listeners, big UX boost |
+| [#19: Linting & Code Standards](#19-linting--code-standards) | Medium | Quick | Run ESLint setup, prevent future bugs |
+| [#31: Permissions Audit](#31-permissions-audit) | Medium | Quick | Review manifest.json, minimal changes |
+| [#32: Content Security Policy](#32-content-security-policy) | High | Quick | Update manifest, critical security |
+| [#5: ONNX Runtime Optimization](#5-onnx-runtime-optimization) | High | Medium | Cache model, preload on install |
+| [#6: Batch Processing](#6-batch-processing) | High | Medium | Refactor inference loop, major perf boost |
+| [#9: Lazy Loading & Pagination](#9-lazy-loading--pagination) | High | Short | Implement virtual scrolling, better UX |
+| [#11: Visual Enhancements](#11-visual-enhancements) | Medium | Short | CSS improvements, polish |
+| [#17: Error Handling & Retry Logic](#17-error-handling--retry-logic) | High | Short | Add try/catch, exponential backoff |
+| [#30: Privacy Mode](#30-privacy-mode) | High | Short | Toggle settings, skip content storage |
+| [#35: Health Dashboard](#35-health-dashboard) | Medium | Short | Display existing stats, simple UI |
+| [#36: Boolean Search Operators](#36-boolean-search-operators) | Medium | Short | Parse query, filter results |
+| [#39: Saved Searches](#39-saved-searches) | Medium | Short | Store in chrome.storage, simple UI |
+| [#40: Automatic Cleanup](#40-automatic-cleanup) | High | Short | Cron-like background job, delete old data |
+| [#41: Storage Quota Management](#41-storage-quota-management) | High | Short | Check quota API, show warnings |
+| [#46: Build & Deploy Automation](#46-build--deploy-automation) | Medium | Short | GitHub Actions workflow |
+| [#47: Hot Reload Development](#47-hot-reload-development) | Medium | Short | Watch files, reload extension |
 
 ---
 
@@ -1914,11 +1914,11 @@ These are critical issues that significantly impact functionality:
 
 | Enhancement | Severity | Time | Why It's Critical |
 |-------------|----------|------|-------------------|
-| #1: Proper BERT Tokenization | Critical | Long | Core embedding quality issue |
-| #2: Incremental Indexing | Critical | Long | Wastes resources, poor UX |
-| #3: Scalable Search Architecture | Critical | Extended | Won't scale beyond 1000s of pages |
-| #15: TypeScript Migration | High | Extended | Prevent runtime bugs, better DX |
-| #16: Comprehensive Testing | High | Extended | No safety net for changes |
+| [#1: Proper BERT Tokenization](#1-proper-bert-tokenization) | Critical | Long | Core embedding quality issue |
+| [#2: Incremental Indexing](#2-incremental-indexing) | Critical | Long | Wastes resources, poor UX |
+| [#3: Scalable Search Architecture](#3-scalable-search-architecture) | Critical | Extended | Won't scale beyond 1000s of pages |
+| [#15: TypeScript Migration](#15-typescript-migration) | High | Extended | Prevent runtime bugs, better DX |
+| [#16: Comprehensive Testing](#16-comprehensive-testing) | High | Extended | No safety net for changes |
 
 ---
 
@@ -2062,17 +2062,17 @@ These are critical issues that significantly impact functionality:
 ## Return on Investment (ROI)
 
 ### Highest ROI (Quick + High Impact)
-1. #32: Content Security Policy (Quick, High severity)
-2. #17: Error Handling & Retry Logic (Short, High severity)
-3. #5: ONNX Runtime Optimization (Medium, High severity)
-4. #6: Batch Processing (Medium, High severity)
-5. #30: Privacy Mode (Short, High severity)
+1. [#32: Content Security Policy](#32-content-security-policy) (Quick, High severity)
+2. [#17: Error Handling & Retry Logic](#17-error-handling--retry-logic) (Short, High severity)
+3. [#5: ONNX Runtime Optimization](#5-onnx-runtime-optimization) (Medium, High severity)
+4. [#6: Batch Processing](#6-batch-processing) (Medium, High severity)
+5. [#30: Privacy Mode](#30-privacy-mode) (Short, High severity)
 
 ### Lowest ROI (Extended + Low Severity)
-1. #54: Standalone App (Extended, Low severity)
-2. #56: Shared Collections (Extended, Low severity)
-3. #59: Knowledge Graph (Extended, Low severity)
-4. #61: Distributed Processing (Extended, Low severity)
+1. [#54: Standalone App](#54-standalone-app) (Extended, Low severity)
+2. [#56: Shared Collections](#56-shared-collections) (Extended, Low severity)
+3. [#59: Knowledge Graph](#59-knowledge-graph) (Extended, Low severity)
+4. [#61: Distributed Processing](#61-distributed-processing) (Extended, Low severity)
 
 ---
 
