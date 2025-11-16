@@ -3,6 +3,39 @@
  * Handles page processing, MHTML parsing, text extraction, and embedding computation
  */
 
+/**
+ * Logger class for conditional debug logging
+ */
+class Logger {
+  constructor(enabled = false) {
+    this.enabled = enabled;
+  }
+
+  setEnabled(enabled) {
+    this.enabled = enabled;
+  }
+
+  log(...args) {
+    if (this.enabled) {
+      console.log(...args);
+    }
+  }
+
+  warn(...args) {
+    console.warn(...args);
+  }
+
+  error(...args) {
+    console.error(...args);
+  }
+
+  info(...args) {
+    if (this.enabled) {
+      console.log(...args);
+    }
+  }
+}
+
 class OffscreenController {
   constructor() {
     this.pendingRequests = new Map();
@@ -12,8 +45,8 @@ class OffscreenController {
     this.tokenizer = null;
     this.modelPath = null;
     this.initialized = false;
-    this.settings = { enableDebugLogging: false };
-    
+    this.logger = new Logger(false);
+
     // Constants for chunking
     this.MAX_SEQUENCE_LENGTH = 512;
     this.MAX_CONTENT_TOKENS = 510; // Reserve space for [CLS] and [SEP]
@@ -181,20 +214,20 @@ class OffscreenController {
   async initWithVocab(data, sendResponse) {
     try {
       if (data && data.vocab) {
-        console.log('Received vocab from background, size:', data.vocab.length);
+        this.logger.log('Received vocab from background, size:', data.vocab.length);
         await this.loadTokenizer(data.vocab);
-        
-        // Update settings if provided
-        if (data.settings) {
-          this.settings = { ...this.settings, ...data.settings };
+
+        // Update logger settings if provided
+        if (data.settings && data.settings.enableDebugLogging !== undefined) {
+          this.logger.setEnabled(data.settings.enableDebugLogging);
         }
-        
+
         sendResponse({ success: true });
       } else {
         sendResponse({ success: false, error: 'No vocab provided' });
       }
     } catch (error) {
-      console.error('Failed to init with vocab:', error);
+      this.logger.error('Failed to init with vocab:', error);
       sendResponse({ success: false, error: error.message });
     }
   }
@@ -295,11 +328,11 @@ class OffscreenController {
    */
   async loadTokenizer(vocab = null) {
     try {
-      console.log('Loading tokenizer...');
+      this.logger.log('Loading tokenizer...');
 
       // If vocab not provided, try to load from extension URL
       if (!vocab) {
-        console.log('No vocab provided, attempting to load from bundle...');
+        this.logger.log('No vocab provided, attempting to load from bundle...');
         try {
           const vocabUrl = chrome.runtime.getURL('generated/models/all-MiniLM-L6-v2/vocab.txt');
           const response = await fetch(vocabUrl);
@@ -311,12 +344,12 @@ class OffscreenController {
           const vocabText = await response.text();
           vocab = vocabText.split('\n').filter(line => line.trim());
         } catch (error) {
-          console.error('Failed to load vocab from URL:', error);
+          this.logger.error('Failed to load vocab from URL:', error);
           throw new Error('Vocab must be provided to loadTokenizer');
         }
       }
 
-      console.log('Vocabulary loaded, size:', vocab.length);
+      this.logger.log('Vocabulary loaded, size:', vocab.length);
 
       // Create vocab map for O(1) lookup
       const vocabMap = new Map(vocab.map((token, idx) => [token, idx]));
@@ -326,7 +359,7 @@ class OffscreenController {
       const sepId = vocabMap.get('[SEP]') || 102;
       const unkId = vocabMap.get('[UNK]') || 100;
 
-      console.log('Special tokens:', { clsId, sepId, unkId });
+      this.logger.log('Special tokens:', { clsId, sepId, unkId });
 
       // Create WordPiece tokenizer
       this.tokenizer = {
@@ -401,11 +434,11 @@ class OffscreenController {
       // Test tokenization
       const testText = 'electro';
       const testTokens = this.tokenizer.encoder.encode(testText);
-      console.log(`Test: "${testText}" -> tokens:`, testTokens);
+      this.logger.log(`Test: "${testText}" -> tokens:`, testTokens);
 
       return;
     } catch (error) {
-      console.error('Failed to load tokenizer:', error);
+      this.logger.error('Failed to load tokenizer:', error);
       throw new Error('Failed to load tokenizer from bundled vocab.txt');
     }
   }
@@ -651,13 +684,16 @@ class OffscreenController {
     // The tokenizer adds these, but we'll add them back per chunk
     const contentTokens = fullTokens.slice(1, -1);
 
-    if (this.settings?.enableDebugLogging) {
-      console.log(`Full text tokenized to ${fullTokens.length} tokens (${contentTokens.length} content tokens)`);
-    }
+    this.logger.log(
+      `Full text tokenized to ${fullTokens.length} tokens (${contentTokens.length} content tokens)`
+    );
 
     // Step 2: Split tokens into overlapping chunks
     for (let i = 0; i < contentTokens.length; i += this.MAX_CONTENT_TOKENS - this.OVERLAP_TOKENS) {
-      const chunkTokens = contentTokens.slice(i, Math.min(i + this.MAX_CONTENT_TOKENS, contentTokens.length));
+      const chunkTokens = contentTokens.slice(
+        i,
+        Math.min(i + this.MAX_CONTENT_TOKENS, contentTokens.length)
+      );
 
       // Add [CLS] (101) at start and [SEP] (102) at end
       const finalTokens = [this.tokenizer.clsId, ...chunkTokens, this.tokenizer.sepId];
@@ -682,9 +718,7 @@ class OffscreenController {
       });
     }
 
-    if (this.settings?.enableDebugLogging) {
-      console.log(`Created ${chunks.length} token-based chunks`);
-    }
+    this.logger.log(`Created ${chunks.length} token-based chunks`);
     return chunks;
   }
 
@@ -699,24 +733,23 @@ class OffscreenController {
     }
 
     try {
-      if (this.settings?.enableDebugLogging) {
-        console.log('Tokenizing text:', text.substring(0, 100) + (text.length > 100 ? '...' : ''));
-      }
+      this.logger.log(
+        'Tokenizing text:',
+        text.substring(0, 100) + (text.length > 100 ? '...' : '')
+      );
       const tokens = this.tokenizer.encoder.encode(text);
-      
-      if (this.settings?.enableDebugLogging) {
-        console.log('Number of tokens:', tokens.length);
-        if (tokens.length > 0) {
-          console.log('First 5 tokens:', tokens.slice(0, 5));
-          if (tokens.length > 5) {
-            console.log('Last 5 tokens:', tokens.slice(-5));
-          }
+
+      this.logger.log('Number of tokens:', tokens.length);
+      if (tokens.length > 0) {
+        this.logger.log('First 5 tokens:', tokens.slice(0, 5));
+        if (tokens.length > 5) {
+          this.logger.log('Last 5 tokens:', tokens.slice(-5));
         }
       }
 
       return tokens;
     } catch (error) {
-      console.error('Tokenization failed:', error);
+      this.logger.error('Tokenization failed:', error);
       throw new Error('Failed to tokenize text: ' + error.message);
     }
   }
@@ -738,7 +771,7 @@ class OffscreenController {
         .replace(/['']/g, "'")
         .split(/\s+/)
         .filter(w => w.length > 0);
-      
+
       const wordToTokens = [];
       let tokenIndex = 1; // Start after [CLS]
 
@@ -746,7 +779,7 @@ class OffscreenController {
       for (let wordIdx = 0; wordIdx < words.length; wordIdx++) {
         const word = words[wordIdx];
         const wordStartTokenIndex = tokenIndex;
-        
+
         // Remove punctuation for initial lookup
         const cleanWord = word.replace(/[^\w]/g, '');
         if (!cleanWord) {
@@ -808,7 +841,7 @@ class OffscreenController {
         wordToTokens,
       };
     } catch (error) {
-      console.error('Tokenization with mapping failed:', error);
+      this.logger.error('Tokenization with mapping failed:', error);
       throw new Error('Failed to tokenize text with mapping: ' + error.message);
     }
   }
@@ -828,7 +861,7 @@ class OffscreenController {
       // startTokenIndex is in contentTokens space (no [CLS]), wordToTokens is in fullTokens space (with [CLS])
       const fullStartIndex = startTokenIndex + 1; // +1 for [CLS]
       const fullEndIndex = startTokenIndex + chunkTokens.length + 1; // +1 for [CLS]
-      
+
       const textWords = [];
 
       // Find words that correspond to tokens in this chunk
@@ -844,7 +877,7 @@ class OffscreenController {
       // Join words with spaces (approximate reconstruction)
       return textWords.join(' ').trim() || '[Text segment]';
     } catch (error) {
-      console.warn('Failed to reconstruct text from tokens:', error);
+      this.logger.warn('Failed to reconstruct text from tokens:', error);
       return '[Text segment]';
     }
   }
@@ -869,16 +902,14 @@ class OffscreenController {
         const embedding = await Promise.race([embeddingPromise, timeoutPromise]);
         embeddings.push(embedding);
       } catch (error) {
-        console.error(`Failed to compute embedding for chunk ${chunk.id}:`, error);
+        this.logger.error(`Failed to compute embedding for chunk ${chunk.id}:`, error);
         // Add zero vector as fallback
         embeddings.push(new Float32Array(384).fill(0));
       }
     }
 
     const totalTime = Date.now() - startTime;
-    if (this.settings?.enableDebugLogging) {
-      console.log(`Computed ${embeddings.length} embeddings in ${totalTime}ms`);
-    }
+    this.logger.log(`Computed ${embeddings.length} embeddings in ${totalTime}ms`);
 
     return embeddings;
   }
@@ -894,29 +925,27 @@ class OffscreenController {
     }
 
     try {
-      if (this.settings?.enableDebugLogging) {
-        console.log(
-          'Computing embedding for text:',
-          text.substring(0, 100) + (text.length > 100 ? '...' : '')
-        );
-      }
+      this.logger.log(
+        'Computing embedding for text:',
+        text.substring(0, 100) + (text.length > 100 ? '...' : '')
+      );
 
       // Tokenize the text
       const tokens = this.tokenize(text);
-      
-      if (this.settings?.enableDebugLogging) {
-        console.log('Tokenized text into', tokens.length, 'tokens');
-      }
+
+      this.logger.log('Tokenized text into', tokens.length, 'tokens');
 
       // Limit to max sequence length
       const trimmedTokens = tokens.slice(0, this.MAX_SEQUENCE_LENGTH);
       if (tokens.length > this.MAX_SEQUENCE_LENGTH) {
-        console.warn(`Text has ${tokens.length} tokens, truncating to ${this.MAX_SEQUENCE_LENGTH}`);
+        this.logger.warn(
+          `Text has ${tokens.length} tokens, truncating to ${this.MAX_SEQUENCE_LENGTH}`
+        );
       }
 
       return await this.computeEmbeddingFromTokens(trimmedTokens, 'text input');
     } catch (error) {
-      console.error('Failed to compute single embedding:', error.message || error);
+      this.logger.error('Failed to compute single embedding:', error.message || error);
       throw error;
     }
   }
@@ -939,13 +968,13 @@ class OffscreenController {
     // Validate token count (should already include [CLS] and [SEP])
     let processedTokens = tokens;
     if (tokens.length > this.MAX_SEQUENCE_LENGTH) {
-      console.warn(`Token count ${tokens.length} exceeds max ${this.MAX_SEQUENCE_LENGTH}, truncating`);
+      this.logger.warn(
+        `Token count ${tokens.length} exceeds max ${this.MAX_SEQUENCE_LENGTH}, truncating`
+      );
       processedTokens = tokens.slice(0, this.MAX_SEQUENCE_LENGTH);
     }
 
-    if (this.settings?.enableDebugLogging) {
-      console.log('Computing embedding from', processedTokens.length, 'pre-computed tokens');
-    }
+    this.logger.log('Computing embedding from', processedTokens.length, 'pre-computed tokens');
 
     return await this.computeEmbeddingFromTokens(processedTokens, 'pre-tokenized input');
   }
@@ -974,9 +1003,9 @@ class OffscreenController {
     const attentionMask = new BigInt64Array(actualLength).fill(1n);
     const tokenTypeIds = new BigInt64Array(actualLength).fill(0n);
 
-    if (this.settings?.enableDebugLogging) {
-      console.log(`Input tensor shapes for ${source} - inputIds: ${inputIds.length}, attentionMask: ${attentionMask.length}, tokenTypeIds: ${tokenTypeIds.length}`);
-    }
+    this.logger.log(
+      `Input tensor shapes for ${source} - inputIds: ${inputIds.length}, attentionMask: ${attentionMask.length}, tokenTypeIds: ${tokenTypeIds.length}`
+    );
 
     // Create input tensors
     const inputIdsTensor = new this.ort.Tensor('int64', inputIds, [1, actualLength]);
@@ -985,10 +1014,8 @@ class OffscreenController {
 
     // Run inference
     const inferenceStart = Date.now();
-    
-    if (this.settings?.enableDebugLogging) {
-      console.log('Running ONNX inference...');
-    }
+
+    this.logger.log('Running ONNX inference...');
 
     let results;
     try {
@@ -998,16 +1025,14 @@ class OffscreenController {
         token_type_ids: tokenTypeIdsTensor,
       });
     } catch (runtimeError) {
-      console.error('ONNX Runtime error:', runtimeError?.message);
-      if (this.settings?.enableDebugLogging) {
-        console.error('Error type:', typeof runtimeError);
-        console.error('Error value:', runtimeError);
-        console.error('Tensor info:', {
-          inputIdsLength: inputIdsTensor.dims,
-          attentionMaskLength: attentionMaskTensor.dims,
-          tokenTypeIdsLength: tokenTypeIdsTensor.dims,
-        });
-      }
+      this.logger.error('ONNX Runtime error:', runtimeError?.message);
+      this.logger.log('Error type:', typeof runtimeError);
+      this.logger.log('Error value:', runtimeError);
+      this.logger.log('Tensor info:', {
+        inputIdsLength: inputIdsTensor.dims,
+        attentionMaskLength: attentionMaskTensor.dims,
+        tokenTypeIdsLength: tokenTypeIdsTensor.dims,
+      });
       // Clean up tensors before re-throwing
       inputIdsTensor.dispose();
       attentionMaskTensor.dispose();
@@ -1016,15 +1041,13 @@ class OffscreenController {
     }
 
     const inferenceTime = Date.now() - inferenceStart;
-    
-    if (this.settings?.enableDebugLogging) {
-      console.log('ONNX inference completed in', inferenceTime, 'ms');
-    }
+
+    this.logger.log('ONNX inference completed in', inferenceTime, 'ms');
 
     // Validate results
     if (!results.last_hidden_state) {
-      console.error('ONNX results missing last_hidden_state');
-      console.error('Available outputs:', Object.keys(results));
+      this.logger.error('ONNX results missing last_hidden_state');
+      this.logger.error('Available outputs:', Object.keys(results));
       inputIdsTensor.dispose();
       attentionMaskTensor.dispose();
       tokenTypeIdsTensor.dispose();
@@ -1033,10 +1056,8 @@ class OffscreenController {
 
     // Check if data is available
     if (!results.last_hidden_state.data) {
-      console.error('hidden_state data is null or undefined');
-      if (this.settings?.enableDebugLogging) {
-        console.error('hidden_state object:', results.last_hidden_state);
-      }
+      this.logger.error('hidden_state data is null or undefined');
+      this.logger.log('hidden_state object:', results.last_hidden_state);
       inputIdsTensor.dispose();
       attentionMaskTensor.dispose();
       tokenTypeIdsTensor.dispose();
@@ -1049,7 +1070,7 @@ class OffscreenController {
     const dims = results.last_hidden_state.dims;
 
     if (!dims || dims.length !== 3) {
-      console.error('Invalid tensor dimensions:', dims);
+      this.logger.error('Invalid tensor dimensions:', dims);
       inputIdsTensor.dispose();
       attentionMaskTensor.dispose();
       tokenTypeIdsTensor.dispose();
@@ -1060,13 +1081,11 @@ class OffscreenController {
     const seqLength = dims[1];
     const hiddenSize = dims[2];
 
-    if (this.settings?.enableDebugLogging) {
-      console.log('Hidden state dimensions:', { batchSize, seqLength, hiddenSize });
-    }
+    this.logger.log('Hidden state dimensions:', { batchSize, seqLength, hiddenSize });
 
     // Validate expected shape
     if (batchSize !== 1) {
-      console.error('Unexpected batch size:', batchSize);
+      this.logger.error('Unexpected batch size:', batchSize);
       inputIdsTensor.dispose();
       attentionMaskTensor.dispose();
       tokenTypeIdsTensor.dispose();
@@ -1074,7 +1093,7 @@ class OffscreenController {
     }
 
     if (hiddenState.length !== batchSize * seqLength * hiddenSize) {
-      console.error('Tensor size mismatch:', {
+      this.logger.error('Tensor size mismatch:', {
         expected: batchSize * seqLength * hiddenSize,
         actual: hiddenState.length,
         batchSize,
@@ -1097,7 +1116,7 @@ class OffscreenController {
         if (index >= 0 && index < hiddenState.length) {
           sum += hiddenState[index];
         } else {
-          console.error(
+          this.logger.error(
             `Index out of bounds: ${index}, hiddenState.length: ${hiddenState.length}`
           );
           inputIdsTensor.dispose();
@@ -1109,10 +1128,8 @@ class OffscreenController {
       embedding[i] = sum / seqLength;
     }
 
-    if (this.settings?.enableDebugLogging) {
-      console.log('Generated embedding vector of size:', embedding.length);
-      console.log('First 5 embedding values:', Array.from(embedding.slice(0, 5)));
-    }
+    this.logger.log('Generated embedding vector of size:', embedding.length);
+    this.logger.log('First 5 embedding values:', Array.from(embedding.slice(0, 5)));
 
     // Clean up tensors
     inputIdsTensor.dispose();
