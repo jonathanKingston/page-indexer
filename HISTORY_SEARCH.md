@@ -2,31 +2,28 @@
 
 ## Overview
 
-A fast, privacy-first browser history search interface with new-tab styling. This is the **Phase 1 - Baseline MVP** implementation with full keyboard navigation and accessibility support.
+A fast, privacy-first search interface for browsing your indexed pages with new-tab styling. Integrated with the Page Indexer's semantic search capabilities, this interface provides both fast baseline text search and AI-powered semantic search with full keyboard navigation and accessibility support.
 
 ## Implementation Status
 
-### ✅ Phase 1 - Baseline MVP (Complete)
+### ✅ Phase 1 - Complete
 - [x] Minimal new-tab UI
-- [x] Baseline search with <150ms latency for 5k items
+- [x] Baseline search with <150ms latency
 - [x] Detail modal with full page information
 - [x] Complete keyboard navigation
 - [x] WCAG AA accessibility compliance
-- [x] Mock history data generator (5000 entries)
 - [x] Performance metrics tracking
 - [x] Debug panel (add `?debug=1` to URL)
+- [x] **Integration with real indexed pages**
+- [x] **AI-powered semantic search mode**
+- [x] **Automatic fallback between AI and baseline modes**
+- [x] **Snippet extraction from semantic search results**
 
-### 🔜 Phase 2 - Worker & Indexing (Planned)
-- [ ] Move scoring to Web Worker
-- [ ] IndexedDB caches for history & suggestions
-- [ ] Import real history via `chrome.history` API
-- [ ] Query suggestions/typeahead
-
-### 🔜 Phase 3 - AI Re-rank & Suggestions (Planned)
-- [ ] Query understanding (local rules + optional LLM)
-- [ ] Embedding-based re-ranking
-- [ ] Embedding cache in IndexedDB
-- [ ] Typeahead suggestions
+### 🔜 Phase 2 - Enhancements (Planned)
+- [ ] Move baseline scoring to Web Worker
+- [ ] Query suggestions/typeahead based on indexed content
+- [ ] Advanced filtering (by domain, date range, chunk count)
+- [ ] Export search results
 
 ### 🔜 Phase 4 - Summaries & Polish (Planned)
 - [ ] On-demand page summaries in modal
@@ -39,33 +36,43 @@ A fast, privacy-first browser history search interface with new-tab styling. Thi
 ### Files
 - **`history.html`** - UI structure with semantic HTML and ARIA attributes
 - **`history.css`** - WCAG AA compliant styling with CSS custom properties
-- **`history.js`** - All functionality (search, modal, keyboard nav, mock data)
+- **`history.js`** - All functionality (search, modal, keyboard nav, data loading)
+
+### Integration with Page Indexer
+The History Search interface integrates with the existing Page Indexer extension:
+- **Data Source**: Loads indexed pages from `chrome.storage` via background script
+- **Baseline Search**: Fast local text matching on titles, URLs, and domains
+- **AI Search**: Uses the extension's semantic search (ONNX embeddings) for intelligent ranking
+- **Automatic Fallback**: Falls back to baseline search if AI search fails or is unavailable
 
 ### Key Components
 
-#### 1. Mock Data Generator
-Generates realistic browsing history for testing:
-- 5000 entries by default
-- 16 popular domains (GitHub, Stack Overflow, MDN, etc.)
-- Realistic visit patterns (last 365 days)
-- Variable visit counts (1-50)
-- ~30% of entries have snippets
+#### 1. Data Loading
+Loads indexed pages from the Page Indexer extension:
+- **Real Data**: Fetches pages via `chrome.runtime.sendMessage({ type: 'GET_ALL_PAGES' })`
+- **Mock Data**: Falls back to generated data for testing outside extension context
+- **Data Conversion**: Converts page metadata to `HistoryEntry` format
+- **Empty State**: Shows helpful message when no pages are indexed
+- **URL Parameter**: Add `?mock=1` to force mock data mode for testing
 
-#### 2. Baseline Search Algorithm
-Fast local search with scoring:
+#### 2. Search Modes
 
+**Baseline Search** - Fast local text matching:
 ```javascript
 score = 0.6 * textMatch + 0.25 * recency + 0.15 * frequency
 ```
-
 - **Text Match**: Term matching in title/URL/domain with bonuses for title matches
 - **Recency**: Exponential decay with τ = 2 weeks
-- **Frequency**: Visit count normalized (capped at 2.0)
+- **Frequency**: Chunk count (indexed pages treated as 1 visit)
+- **Performance**: ~5-10ms average search time
 
-**Performance**:
-- Tested with 5000 items
-- Average search time: ~5-10ms
-- Well under 150ms target
+**AI Semantic Search** - Embedding-based search:
+- Uses `SEMANTIC_SEARCH` message to background script
+- Computes query embedding using all-MiniLM-L6-v2 model
+- Finds most similar chunks using cosine similarity
+- Groups results by page and shows best matching chunk as snippet
+- Automatic fallback to baseline if AI search fails
+- **Performance**: ~100-500ms depending on corpus size
 
 #### 3. Modal Component
 Displays detailed information:
@@ -100,11 +107,22 @@ WCAG AA compliant:
 ## Usage
 
 ### Basic Usage
-1. Open `history.html` in a browser
-2. Type in the search box to filter history
-3. Use arrow keys to navigate results
-4. Press Enter or click to view details
-5. Click "Open Page" to visit the URL
+1. Load the extension and browse some pages to build your index
+2. Open `history.html` from the extension (or navigate to it)
+3. Type in the search box to filter indexed pages
+4. Toggle between Baseline and AI search modes
+5. Use arrow keys to navigate results
+6. Press Enter or click to view details
+7. Click "Open Page" to visit the URL
+
+### Search Modes
+- **Baseline Mode**: Fast text-based search (default)
+  - Best for: Quick lookups, exact title/URL matching
+  - Speed: <10ms for most queries
+- **AI Mode**: Semantic search with embeddings
+  - Best for: Conceptual queries, finding related content
+  - Speed: ~100-500ms depending on corpus size
+  - Shows snippet from best matching chunk
 
 ### Keyboard Shortcuts
 - **`/`** - Focus search (works from anywhere)
@@ -114,12 +132,9 @@ WCAG AA compliant:
 - **`Esc`** - Close modal
 - **`Tab`** - Navigate modal buttons
 
-### Debug Mode
-Add `?debug=1` to the URL to show debug panel with:
-- Current query
-- Results count
-- Search time (ms)
-- Current mode
+### URL Parameters
+- `?debug=1` - Show debug panel with search metrics
+- `?mock=1` - Use mock data instead of real indexed pages
 
 ## Performance
 

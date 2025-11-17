@@ -9,14 +9,14 @@
 
 /**
  * @typedef {Object} HistoryEntry
- * @property {string} id - Unique identifier
+ * @property {string} id - Unique identifier (pageId)
  * @property {string} title - Page title
  * @property {string} url - Full URL
  * @property {string} domain - Domain name
- * @property {string} visitedISO - ISO date of last visit
- * @property {number} visitCount - Total visit count
+ * @property {string} visitedISO - ISO date of last visit (indexed timestamp)
+ * @property {number} visitCount - Total visit count (always 1 for indexed pages)
+ * @property {number} chunkCount - Number of chunks
  * @property {string} [snippet] - Optional summary
- * @property {string} [contentHash] - Optional content hash for dedupe
  */
 
 /**
@@ -41,7 +41,8 @@ const CONFIG = {
   DEBOUNCE_DELAY: 200, // ms
   RECENCY_TAU: 1000 * 60 * 60 * 24 * 14, // 2 weeks
   MAX_RESULTS: 100,
-  MOCK_DATA_SIZE: 5000,
+  USE_MOCK_DATA: false, // Set to true to use mock data for testing
+  MOCK_DATA_SIZE: 100, // Reduced for faster loading if needed
   WEIGHTS: {
     TEXT: 0.6,
     RECENCY: 0.25,
@@ -108,7 +109,69 @@ const elements = {
 };
 
 // ============================================================================
-// Mock History Data Generator
+// Data Loading
+// ============================================================================
+
+/**
+ * Load indexed pages from extension storage
+ * @returns {Promise<HistoryEntry[]>}
+ */
+async function loadIndexedPages() {
+  try {
+    const response = await sendMessage({ type: 'GET_ALL_PAGES' });
+
+    if (!response.success) {
+      console.error('Failed to load pages:', response.error);
+      return [];
+    }
+
+    const pages = response.data || [];
+
+    // Convert page data to HistoryEntry format
+    return pages.map(page => {
+      const url = new URL(page.url);
+      return {
+        id: page.pageId,
+        title: page.title || 'Untitled',
+        url: page.url,
+        domain: url.hostname,
+        visitedISO: new Date(page.timestamp).toISOString(),
+        visitCount: 1, // Indexed pages are considered as 1 visit
+        chunkCount: page.chunkCount || 0,
+        snippet: undefined, // Can be loaded on demand
+      };
+    });
+  } catch (error) {
+    console.error('Failed to load indexed pages:', error);
+    return [];
+  }
+}
+
+/**
+ * Send message to background script
+ * @param {Object} message - Message to send
+ * @returns {Promise<Object>} Response
+ */
+function sendMessage(message) {
+  return new Promise((resolve, reject) => {
+    if (!chrome?.runtime?.sendMessage) {
+      // Not in extension context, reject
+      reject(new Error('Not running in extension context'));
+      return;
+    }
+
+    chrome.runtime.sendMessage(message, response => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve(response);
+      }
+    });
+  });
+}
+
+// ============================================================================
+// Mock History Data Generator (for testing outside extension)
 // ============================================================================
 
 /**
@@ -252,7 +315,7 @@ function baselineScore(entry, q, now = Date.now()) {
  * @param {string} q - Query string
  * @returns {SearchResult}
  */
-function search(q) {
+function baselineSearch(q) {
   const start = performance.now();
 
   if (!q.trim()) {
@@ -294,6 +357,98 @@ function search(q) {
   };
 }
 
+/**
+ * Perform AI-powered semantic search
+ * @param {string} q - Query string
+ * @returns {Promise<SearchResult>}
+ */
+async function semanticSearch(q) {
+  const start = performance.now();
+
+  if (!q.trim()) {
+    // Return recently visited when no query
+    const recent = [...historyData]
+      .sort((a, b) => new Date(b.visitedISO).getTime() - new Date(a.visitedISO).getTime())
+      .slice(0, 20);
+
+    return {
+      results: recent,
+      timings: {
+        stage1: performance.now() - start,
+      },
+    };
+  }
+
+  try {
+    const response = await sendMessage({
+      type: 'SEMANTIC_SEARCH',
+      data: { query: q, limit: CONFIG.MAX_RESULTS },
+    });
+
+    if (!response.success) {
+      console.error('Semantic search failed, falling back to baseline');
+      return baselineSearch(q);
+    }
+
+    const semanticResults = response.data || [];
+
+    // Group results by page (may have multiple chunks per page)
+    const pageMap = new Map();
+    semanticResults.forEach(result => {
+      const pageId = result.pageId;
+      if (!pageMap.has(pageId)) {
+        // Find the corresponding history entry
+        const entry = historyData.find(e => e.id === pageId);
+        if (entry) {
+          pageMap.set(pageId, {
+            entry,
+            maxSimilarity: result.similarity,
+            bestChunk: result.chunkText,
+          });
+        }
+      } else {
+        // Update if this chunk has higher similarity
+        const existing = pageMap.get(pageId);
+        if (result.similarity > existing.maxSimilarity) {
+          existing.maxSimilarity = result.similarity;
+          existing.bestChunk = result.chunkText;
+        }
+      }
+    });
+
+    // Convert to array and sort by similarity
+    const results = Array.from(pageMap.values())
+      .sort((a, b) => b.maxSimilarity - a.maxSimilarity)
+      .map(({ entry, bestChunk }) => ({
+        ...entry,
+        snippet: bestChunk ? bestChunk.substring(0, 200) + '...' : undefined,
+      }));
+
+    return {
+      results,
+      timings: {
+        stage1: performance.now() - start,
+      },
+    };
+  } catch (error) {
+    console.error('Semantic search error, falling back to baseline:', error);
+    return baselineSearch(q);
+  }
+}
+
+/**
+ * Perform search based on current mode
+ * @param {string} q - Query string
+ * @returns {Promise<SearchResult>}
+ */
+async function search(q) {
+  if (searchState.mode === 'ai') {
+    return await semanticSearch(q);
+  } else {
+    return baselineSearch(q);
+  }
+}
+
 // ============================================================================
 // UI Rendering
 // ============================================================================
@@ -332,10 +487,10 @@ function renderResults(results) {
       <div class="result-url">${escapeHtml(entry.url)}</div>
       <div class="result-meta">
         <span class="result-meta-item">
-          <span aria-label="Last visited">${relativeTime}</span>
+          <span aria-label="Last indexed">${relativeTime}</span>
         </span>
         <span class="result-meta-item">
-          <span aria-label="Visit count">${entry.visitCount} ${entry.visitCount === 1 ? 'visit' : 'visits'}</span>
+          <span aria-label="Chunk count">${entry.chunkCount} ${entry.chunkCount === 1 ? 'chunk' : 'chunks'}</span>
         </span>
         <span class="result-meta-item">
           <span aria-label="Domain">${escapeHtml(entry.domain)}</span>
@@ -410,7 +565,7 @@ function openModal(entry) {
   elements.modalUrl.textContent = entry.url;
   elements.modalDomain.textContent = entry.domain;
   elements.modalVisited.textContent = new Date(entry.visitedISO).toLocaleString();
-  elements.modalVisitCount.textContent = `${entry.visitCount} ${entry.visitCount === 1 ? 'visit' : 'visits'}`;
+  elements.modalVisitCount.textContent = `${entry.chunkCount} ${entry.chunkCount === 1 ? 'chunk' : 'chunks'}`;
 
   if (entry.snippet) {
     elements.modalSnippet.textContent = entry.snippet;
@@ -524,18 +679,30 @@ function handleSearchInput() {
 /**
  * Perform search and render results
  */
-function performSearch() {
-  const result = search(searchState.q);
-  metrics.searchCount++;
+async function performSearch() {
+  try {
+    // Show loading indicator for AI search
+    if (searchState.mode === 'ai' && searchState.q.trim()) {
+      elements.loading.hidden = false;
+    }
 
-  renderResults(result.results);
+    const result = await search(searchState.q);
+    metrics.searchCount++;
 
-  // Update debug panel
-  if (!elements.debugPanel.hidden) {
-    elements.debugQuery.textContent = searchState.q || '(empty)';
-    elements.debugResultsCount.textContent = String(result.results.length);
-    elements.debugSearchTime.textContent = `${result.timings.stage1.toFixed(2)}ms`;
-    elements.debugMode.textContent = searchState.mode;
+    renderResults(result.results);
+
+    // Update debug panel
+    if (!elements.debugPanel.hidden) {
+      elements.debugQuery.textContent = searchState.q || '(empty)';
+      elements.debugResultsCount.textContent = String(result.results.length);
+      elements.debugSearchTime.textContent = `${result.timings.stage1.toFixed(2)}ms`;
+      elements.debugMode.textContent = searchState.mode;
+    }
+  } catch (error) {
+    console.error('Search error:', error);
+    elements.resultsCount.textContent = 'Search failed. Please try again.';
+  } finally {
+    elements.loading.hidden = true;
   }
 }
 
@@ -665,31 +832,88 @@ elements.modal.addEventListener('keydown', (e) => {
 /**
  * Initialize the application
  */
-function init() {
-  // Check for debug mode
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('debug') === '1') {
-    elements.debugPanel.hidden = false;
+async function init() {
+  try {
+    // Check for debug mode
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('debug') === '1') {
+      elements.debugPanel.hidden = false;
+    }
+
+    // Check for mock data mode
+    const useMock = urlParams.get('mock') === '1' || CONFIG.USE_MOCK_DATA;
+
+    // Load data
+    console.log('Loading history data...');
+    const start = performance.now();
+
+    if (useMock) {
+      // Use mock data for testing
+      console.log(`Generating ${CONFIG.MOCK_DATA_SIZE} mock history entries...`);
+      historyData = generateMockHistory(CONFIG.MOCK_DATA_SIZE);
+      console.log(`Generated ${historyData.length} mock entries in ${(performance.now() - start).toFixed(2)}ms`);
+    } else {
+      // Load real indexed pages
+      try {
+        historyData = await loadIndexedPages();
+        console.log(`Loaded ${historyData.length} indexed pages in ${(performance.now() - start).toFixed(2)}ms`);
+
+        if (historyData.length === 0) {
+          showEmptyState();
+        }
+      } catch (error) {
+        console.error('Failed to load indexed pages, falling back to mock data:', error);
+        historyData = generateMockHistory(CONFIG.MOCK_DATA_SIZE);
+      }
+    }
+
+    // Show initial "Recently Visited"
+    await performSearch();
+
+    // Focus search input
+    elements.searchInput.focus();
+
+    console.log('History Search initialized');
+    console.log('Press "/" to focus search');
+    console.log('Use ↑/↓ to navigate results');
+    console.log('Press Enter to view details');
+    console.log('Add ?debug=1 to URL for debug panel');
+    console.log('Add ?mock=1 to URL to use mock data');
+  } catch (error) {
+    console.error('Failed to initialize:', error);
+    showErrorState('Failed to initialize. Please try reloading.');
   }
+}
 
-  // Generate mock history data
-  console.log(`Generating ${CONFIG.MOCK_DATA_SIZE} mock history entries...`);
-  const start = performance.now();
-  historyData = generateMockHistory(CONFIG.MOCK_DATA_SIZE);
-  const elapsed = performance.now() - start;
-  console.log(`Generated ${historyData.length} entries in ${elapsed.toFixed(2)}ms`);
+/**
+ * Show empty state when no pages are indexed
+ */
+function showEmptyState() {
+  elements.resultsList.innerHTML = `
+    <li class="empty-state">
+      <div class="empty-state-title">No Pages Indexed Yet</div>
+      <div class="empty-state-text">
+        Visit some web pages to start building your searchable index.<br>
+        The extension will automatically capture and index pages as you browse.<br><br>
+        <em>Tip: Add ?mock=1 to the URL to see a demo with mock data.</em>
+      </div>
+    </li>
+  `;
+  elements.resultsCount.textContent = '';
+}
 
-  // Show initial "Recently Visited"
-  performSearch();
-
-  // Focus search input
-  elements.searchInput.focus();
-
-  console.log('History Search initialized');
-  console.log('Press "/" to focus search');
-  console.log('Use ↑/↓ to navigate results');
-  console.log('Press Enter to view details');
-  console.log('Add ?debug=1 to URL for debug panel');
+/**
+ * Show error state
+ * @param {string} message - Error message
+ */
+function showErrorState(message) {
+  elements.resultsList.innerHTML = `
+    <li class="empty-state">
+      <div class="empty-state-title">Error</div>
+      <div class="empty-state-text">${escapeHtml(message)}</div>
+    </li>
+  `;
+  elements.resultsCount.textContent = '';
 }
 
 // Start the application

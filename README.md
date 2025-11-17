@@ -17,22 +17,27 @@ A Chrome extension that automatically captures web pages as MHTML, extracts text
 captures and indexes pages as you browse. No user interaction required.
 
 ### History Search (New!)
-- **Fast Local Search**: New-tab-style interface for searching browsing history
-- **Baseline Search**: <150ms median latency for 5k items with scoring based on:
+A fast, elegant search interface for your indexed pages with dual search modes:
+
+**Search Modes**:
+- **Baseline Mode**: Lightning-fast text search (<10ms) with intelligent scoring
   - Text matching (title, URL, domain) with term weighting
   - Recency decay (exponential, 2-week tau)
-  - Frequency bonus (visit count)
-- **Modal Details**: Click any result to view full details (URL, domain, visit stats, summary)
-- **Full Keyboard Support**:
-  - Press `/` to focus search
-  - `↑/↓` to navigate results
-  - `Enter` to open modal
-  - `Esc` to close modal
-- **Accessibility**: WCAG AA compliant with proper ARIA labels, focus management, and screen reader support
-- **Privacy-First**: All data stays local; mock data for demo (can integrate with `chrome.history` API)
-- **Progressive Enhancement**: AI re-ranking and summaries planned for Phase 2+
+  - Smart ranking based on indexed content
+- **AI Mode**: Semantic search using all-MiniLM-L6-v2 embeddings
+  - Understands conceptual queries beyond keyword matching
+  - Shows relevant snippets from matching chunks
+  - Automatic fallback to baseline if unavailable
 
-To use: Open `history.html` in the extension or navigate to it directly.
+**Features**:
+- **Dual-Mode Search**: Toggle between fast baseline and AI semantic search
+- **Modal Details**: Click any result to view full page information
+- **Full Keyboard Support**: `/` to focus, `↑/↓` to navigate, `Enter` to view, `Esc` to close
+- **Accessibility**: WCAG AA compliant with ARIA labels and screen reader support
+- **Empty State Handling**: Shows helpful message when no pages are indexed
+- **Mock Data Mode**: Add `?mock=1` for testing/demo without indexed pages
+
+To use: Open `history.html` in the extension. See HISTORY_SEARCH.md for full documentation.
 
 ## Technical Details
 
