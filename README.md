@@ -16,6 +16,44 @@ A Chrome extension that automatically captures web pages as MHTML, extracts text
 
 captures and indexes pages as you browse. No user interaction required.
 
+## Development Setup
+
+### Prerequisites
+- Node.js and npm installed
+- Firefox (for testing with web-ext)
+
+### Installation
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Download required models and ONNX Runtime files:
+   ```bash
+   npm run setup
+   ```
+
+### Building
+Build the extension (bundles offscreen.js with esbuild):
+```bash
+npm run build        # Production build
+npm run build:dev    # Development build with source maps
+npm run watch        # Watch mode for development
+```
+
+### Testing & Validation
+Run the extension in Firefox for validation:
+```bash
+npm run start        # Build and run in Firefox
+npm run start:dev    # Build with source maps and run in Firefox
+npm run package      # Build and package extension as .zip
+npm run lint:ext     # Lint extension code
+```
+
+**Note**: This extension is designed for Chrome (Manifest v3) but can be tested in Firefox for validation purposes. Some Chrome-specific APIs (like `pageCapture` and `offscreen`) are not available in Firefox.
+
+The packaged extension will be available in `web-ext-artifacts/page_indexer-1.0.0.zip`.
+
 ## Technical Details
 
 ### Storage

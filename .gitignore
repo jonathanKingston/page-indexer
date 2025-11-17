@@ -1,3 +1,4 @@
 node_modules
 /generated/
 *.bundled.js
+/web-ext-artifacts/
