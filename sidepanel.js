@@ -60,6 +60,10 @@ class SidePanelController {
       }
     });
 
+    document.getElementById('rebuildBM25Index').addEventListener('click', () => {
+      this.rebuildBM25Index();
+    });
+
     // Settings view
     document.getElementById('clearAllData').addEventListener('click', () => {
       this.clearAllData();
@@ -343,6 +347,7 @@ class SidePanelController {
   async performSearch() {
     const query = document.getElementById('searchQuery').value.trim();
     const limit = parseInt(document.getElementById('searchLimit').value) || 10;
+    const mode = document.getElementById('searchMode')?.value || 'hybrid';
 
     if (!query) {
       this.showError('Please enter a search query');
@@ -354,7 +359,7 @@ class SidePanelController {
 
       const response = await this.sendMessage({
         type: 'SEMANTIC_SEARCH',
-        data: { query, limit },
+        data: { query, limit, mode },
       });
 
       if (response.success) {
@@ -388,10 +393,15 @@ class SidePanelController {
     const container = document.getElementById('searchResults');
 
     if (this.searchResults.length === 0) {
+      const searchMode = document.getElementById('searchMode')?.value || 'hybrid';
+      let message = 'No results found';
+      if (searchMode === 'bm25') {
+        message = 'No BM25 results found. The index may be empty. Try rebuilding the BM25 index for existing pages.';
+      }
       container.innerHTML = `
         <div class="empty-state">
           <div class="empty-icon">🔍</div>
-          <div>No results found</div>
+          <div>${message}</div>
         </div>
       `;
       return;
@@ -406,7 +416,13 @@ class SidePanelController {
             <a href="${result.pageUrl}" target="_blank">${this.escapeHtml(result.pageTitle)}</a>
           </div>
           <div class="result-similarity">
-            ${(result.similarity * 100).toFixed(1)}% match
+            ${result.similarity !== undefined 
+              ? `${(result.similarity * 100).toFixed(1)}% match`
+              : result.score !== undefined
+              ? `BM25: ${result.score.toFixed(2)}`
+              : result.rrfScore !== undefined
+              ? `RRF: ${result.rrfScore.toFixed(4)}`
+              : 'Score: N/A'}
           </div>
         </div>
         <div class="result-text">
@@ -662,9 +678,37 @@ class SidePanelController {
   }
 
   /**
-   * Show error message
-   * @param {string} message - Error message
+   * Rebuild BM25 index for all existing pages
    */
+  async rebuildBM25Index() {
+    const button = document.getElementById('rebuildBM25Index');
+    const originalText = button.textContent;
+    
+    button.disabled = true;
+    button.textContent = 'Rebuilding...';
+
+    try {
+      const response = await this.sendMessage({
+        type: 'REBUILD_BM25_INDEX',
+      });
+
+      if (response.success) {
+        const data = response.data;
+        alert(
+          `BM25 index rebuilt successfully!\n${data.pagesIndexed} pages indexed\n${data.totalDocuments} documents\n${data.totalTerms} terms`
+        );
+      } else {
+        this.showError(response.error || 'Failed to rebuild BM25 index');
+      }
+    } catch (error) {
+      console.error('Failed to rebuild BM25 index:', error);
+      this.showError('Failed to rebuild BM25 index: ' + error.message);
+    } finally {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
+
   showError(message) {
     console.error(message);
     // Could implement a toast notification system here

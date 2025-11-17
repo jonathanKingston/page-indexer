@@ -1411,13 +1411,33 @@ class BackgroundService {
    */
   async bm25Search(query, limit = 50) {
     const queryTokens = this.bm25Tokenize(query);
-    if (queryTokens.length === 0) return [];
+    if (queryTokens.length === 0) {
+      console.warn('BM25 search: Query tokenized to empty array');
+      return [];
+    }
+
+    // Debug: Check index state
+    console.log('BM25 search debug:', {
+      query,
+      queryTokens,
+      indexSize: this.invertedIndex.size,
+      totalDocuments: this.totalDocuments,
+      tokensInIndex: queryTokens.filter(t => this.invertedIndex.has(t)).length,
+    });
+
+    if (this.invertedIndex.size === 0 || this.totalDocuments === 0) {
+      console.warn('BM25 index is empty. You may need to rebuild the index for existing pages.');
+      return [];
+    }
 
     const scores = new Map(); // docKey -> score
 
     // Calculate BM25 scores for each document
     for (const queryToken of queryTokens) {
-      if (!this.invertedIndex.has(queryToken)) continue;
+      if (!this.invertedIndex.has(queryToken)) {
+        console.log(`Token "${queryToken}" not found in index`);
+        continue;
+      }
 
       const postings = this.invertedIndex.get(queryToken);
       const docFreq = this.documentFrequency.get(queryToken) || 0;
@@ -1563,6 +1583,88 @@ class BackgroundService {
       console.error('Failed to save BM25 index to OPFS:', error);
       throw error;
     }
+  }
+
+  /**
+   * Rebuild BM25 index for all existing pages
+   * Useful when BM25 feature is added to existing indexed pages
+   */
+  async rebuildBM25Index() {
+    console.log('Rebuilding BM25 index for all existing pages...');
+    
+    // Clear existing index
+    this.invertedIndex = new Map();
+    this.documentFrequency = new Map();
+    this.documentLengths = new Map();
+    this.averageDocumentLength = 0;
+    this.totalDocuments = 0;
+
+    // Get all pages
+    const pages = Array.from(this.pages.values());
+    console.log(`Found ${pages.length} pages to index`);
+
+    if (pages.length === 0) {
+      console.warn('No pages found to index. Make sure you have indexed some pages first.');
+      return {
+        success: false,
+        error: 'No pages found to index',
+        pagesIndexed: 0,
+        errors: 0,
+        totalDocuments: 0,
+        totalTerms: 0,
+      };
+    }
+
+    let indexedCount = 0;
+    let errorCount = 0;
+    let totalChunksIndexed = 0;
+
+    for (const page of pages) {
+      try {
+        const chunks = await this.getPageChunks(page.pageId);
+        if (chunks.length === 0) {
+          console.warn(`No chunks found for page: ${page.title} (${page.pageId})`);
+          errorCount++;
+          continue;
+        }
+
+        console.log(`Indexing ${chunks.length} chunks for page: ${page.title}`);
+
+        for (const chunk of chunks) {
+          if (!chunk.text || chunk.text.trim().length === 0) {
+            console.warn(`Skipping empty chunk ${chunk.id} for page ${page.pageId}`);
+            continue;
+          }
+          this.buildBM25Index(page.pageId, chunk.id, chunk.text);
+          totalChunksIndexed++;
+        }
+        indexedCount++;
+      } catch (error) {
+        console.error(`Failed to index page ${page.pageId} (${page.title}):`, error);
+        errorCount++;
+      }
+    }
+
+    // Save the rebuilt index
+    await this.saveBM25Index();
+
+    console.log(`BM25 index rebuild complete:`, {
+      pagesIndexed: indexedCount,
+      errors: errorCount,
+      totalChunksIndexed,
+      totalDocuments: this.totalDocuments,
+      totalTerms: this.invertedIndex.size,
+      avgDocLength: this.averageDocumentLength,
+    });
+
+    return {
+      success: true,
+      pagesIndexed: indexedCount,
+      errors: errorCount,
+      totalChunksIndexed,
+      totalDocuments: this.totalDocuments,
+      totalTerms: this.invertedIndex.size,
+    };
   }
 
   /**
@@ -1729,6 +1831,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       backgroundService
         .hybridSearch(data.query, data.limit || 10)
         .then(results => sendResponse({ success: true, data: results }))
+        .catch(error => sendResponse({ success: false, error: error.message }));
+      return true;
+
+    case 'REBUILD_BM25_INDEX':
+      backgroundService
+        .rebuildBM25Index()
+        .then(result => sendResponse({ success: true, data: result }))
         .catch(error => sendResponse({ success: false, error: error.message }));
       return true;
 
