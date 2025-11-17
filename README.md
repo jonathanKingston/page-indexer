@@ -20,7 +20,7 @@ captures and indexes pages as you browse. No user interaction required.
 
 ### Prerequisites
 - Node.js and npm installed
-- Firefox (for testing with web-ext)
+- Chrome, Chromium, or a Chromium-based browser (Edge, Brave, etc.)
 
 ### Installation
 1. Clone the repository
@@ -42,15 +42,15 @@ npm run watch        # Watch mode for development
 ```
 
 ### Testing & Validation
-Run the extension in Firefox for validation:
+Run the extension in Chrome/Chromium for testing:
 ```bash
-npm run start        # Build and run in Firefox
-npm run start:dev    # Build with source maps and run in Firefox
+npm run start        # Build and run in Chrome/Chromium
+npm run start:dev    # Build with source maps and run in Chrome/Chromium
 npm run package      # Build and package extension as .zip
 npm run lint:ext     # Lint extension code
 ```
 
-**Note**: This extension is designed for Chrome (Manifest v3) but can be tested in Firefox for validation purposes. Some Chrome-specific APIs (like `pageCapture` and `offscreen`) are not available in Firefox.
+The `start` commands will automatically build the extension and launch it in your default Chromium-based browser.
 
 The packaged extension will be available in `web-ext-artifacts/page_indexer-1.0.0.zip`.
 

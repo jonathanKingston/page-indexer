@@ -19,10 +19,10 @@ module.exports = {
     '**/.DS_Store',
   ],
 
-  // Configuration for running the extension in Firefox
+  // Configuration for running the extension in Chromium
   run: {
     // Start URL to open when the extension loads
-    startUrl: ['about:debugging#/runtime/this-firefox'],
+    startUrl: ['chrome://extensions'],
 
     // Browser console settings
     browserConsole: false,
@@ -33,8 +33,8 @@ module.exports = {
     // Keep the browser profile between runs (useful for testing)
     keepProfileChanges: false,
 
-    // Target browser (can be 'firefox-desktop', 'firefox-android', 'chromium')
-    target: ['firefox-desktop'],
+    // Target browser (chromium includes Chrome, Edge, Brave, etc.)
+    target: ['chromium'],
   },
 
   // Configuration for building the extension
