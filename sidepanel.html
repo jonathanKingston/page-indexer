@@ -66,6 +66,15 @@
                         <input type="number" id="searchLimit" value="10" min="1" max="50">
                         Max results
                     </label>
+                    <label>
+                        Search mode:
+                        <select id="searchMode" class="search-mode-select">
+                            <option value="hybrid">Hybrid (BM25 + Semantic)</option>
+                            <option value="dense">Semantic Only</option>
+                            <option value="bm25">BM25 Keyword Only</option>
+                        </select>
+                    </label>
+                    <button id="rebuildBM25Index" class="rebuild-index-btn" title="Rebuild BM25 index for all existing pages">Rebuild BM25 Index</button>
                 </div>
             </div>
             
