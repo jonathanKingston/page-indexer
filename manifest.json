@@ -34,7 +34,7 @@
   
   "web_accessible_resources": [
     {
-      "resources": ["worker/*", "lib/*", "models/*", "generated/models/*", "generated/ort/*", "popup.html", "sidepanel.html", "test-search.html", "offscreen.html", "generated/*.js", "generated/*.wasm", "*.wasm"],
+      "resources": ["worker/*", "lib/*", "models/*", "generated/models/*", "generated/ort/*", "popup.html", "sidepanel.html", "test-search.html", "offscreen.html", "history.html", "history.css", "history.js", "generated/*.js", "generated/*.wasm", "*.wasm"],
       "matches": ["<all_urls>"]
     }
   ],

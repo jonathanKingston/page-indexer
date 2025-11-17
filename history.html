@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>History Search</title>
+  <link rel="stylesheet" href="history.css">
+</head>
+<body>
+  <main class="container">
+    <!-- Search Header -->
+    <header class="search-header">
+      <h1 class="visually-hidden">History Search</h1>
+      <div class="search-box-container">
+        <label for="search-input" class="visually-hidden">Search your browsing history</label>
+        <input
+          type="search"
+          id="search-input"
+          class="search-input"
+          placeholder="Search your history (press / to focus)"
+          autocomplete="off"
+          spellcheck="false"
+          aria-describedby="search-hint"
+        >
+        <span id="search-hint" class="visually-hidden">Type to search through your browsing history</span>
+      </div>
+
+      <!-- Search Mode Toggle -->
+      <div class="mode-toggle">
+        <button
+          id="mode-toggle-btn"
+          class="mode-toggle-btn"
+          aria-pressed="false"
+          title="Toggle AI-assisted search (currently disabled)"
+        >
+          <span class="mode-label">Baseline</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Results Count -->
+    <div id="results-info" class="results-info" role="status" aria-live="polite" aria-atomic="true">
+      <span id="results-count"></span>
+    </div>
+
+    <!-- Results List -->
+    <div class="results-container">
+      <ul
+        id="results-list"
+        class="results-list"
+        role="listbox"
+        aria-label="Search results"
+      >
+        <!-- Default state: Recently Visited -->
+      </ul>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loading" class="loading" role="status" aria-live="polite" hidden>
+      <span>Searching...</span>
+    </div>
+
+    <!-- Debug Panel (hidden by default) -->
+    <div id="debug-panel" class="debug-panel" hidden>
+      <h2>Debug Info</h2>
+      <dl>
+        <dt>Query:</dt>
+        <dd id="debug-query">-</dd>
+        <dt>Results:</dt>
+        <dd id="debug-results-count">-</dd>
+        <dt>Search Time:</dt>
+        <dd id="debug-search-time">-</dd>
+        <dt>Mode:</dt>
+        <dd id="debug-mode">baseline</dd>
+      </dl>
+    </div>
+  </main>
+
+  <!-- Detail Modal -->
+  <div
+    id="detail-modal"
+    class="modal"
+    role="dialog"
+    aria-labelledby="modal-title"
+    aria-modal="true"
+    hidden
+  >
+    <div class="modal-overlay" aria-hidden="true"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title" class="modal-title"></h2>
+        <button
+          id="modal-close"
+          class="modal-close"
+          aria-label="Close dialog"
+          title="Close (Esc)"
+        >
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <dl class="modal-details">
+          <div class="detail-row">
+            <dt>URL:</dt>
+            <dd id="modal-url" class="modal-url"></dd>
+          </div>
+          <div class="detail-row">
+            <dt>Domain:</dt>
+            <dd id="modal-domain"></dd>
+          </div>
+          <div class="detail-row">
+            <dt>Last Visited:</dt>
+            <dd id="modal-visited"></dd>
+          </div>
+          <div class="detail-row">
+            <dt>Visit Count:</dt>
+            <dd id="modal-visit-count"></dd>
+          </div>
+          <div class="detail-row" id="modal-snippet-row" hidden>
+            <dt>Summary:</dt>
+            <dd id="modal-snippet"></dd>
+          </div>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <button id="modal-open-btn" class="btn btn-primary">Open Page</button>
+        <button id="modal-cancel-btn" class="btn btn-secondary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="history.js"></script>
+</body>
+</html>

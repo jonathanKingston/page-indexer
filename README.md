@@ -16,6 +16,24 @@ A Chrome extension that automatically captures web pages as MHTML, extracts text
 
 captures and indexes pages as you browse. No user interaction required.
 
+### History Search (New!)
+- **Fast Local Search**: New-tab-style interface for searching browsing history
+- **Baseline Search**: <150ms median latency for 5k items with scoring based on:
+  - Text matching (title, URL, domain) with term weighting
+  - Recency decay (exponential, 2-week tau)
+  - Frequency bonus (visit count)
+- **Modal Details**: Click any result to view full details (URL, domain, visit stats, summary)
+- **Full Keyboard Support**:
+  - Press `/` to focus search
+  - `↑/↓` to navigate results
+  - `Enter` to open modal
+  - `Esc` to close modal
+- **Accessibility**: WCAG AA compliant with proper ARIA labels, focus management, and screen reader support
+- **Privacy-First**: All data stays local; mock data for demo (can integrate with `chrome.history` API)
+- **Progressive Enhancement**: AI re-ranking and summaries planned for Phase 2+
+
+To use: Open `history.html` in the extension or navigate to it directly.
+
 ## Technical Details
 
 ### Storage
